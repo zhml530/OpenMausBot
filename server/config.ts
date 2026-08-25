@@ -260,6 +260,10 @@ export const PROVIDER_CREDENTIAL_ENV = [
   "XAI_API_KEY",
   "CURSOR_API_KEY",
   "CURSOR_AUTH_TOKEN",
+  "COPILOT_GITHUB_TOKEN",
+  "GH_TOKEN",
+  "GITHUB_TOKEN",
+  "COPILOT_PROVIDER_API_KEY",
 ] as const;
 
 /** Merge a partial config into ~/.openmausbot/config.json (secrets never
@@ -391,6 +395,7 @@ export function instanceConfigs(cfg: AppConfig): InstanceConfigMap {
     kimi: { driver: "kimiAgent" },
     droid: { driver: "droidAgent" },
     cursor: { driver: "cursorAgent" },
+    copilot: { driver: "copilotAgent" },
     claude: { driver: "claudeAgent" },
     codex: { driver: "codex" },
     antigravity: { driver: "antigravityAgent" },
@@ -411,6 +416,7 @@ export function instanceConfigs(cfg: AppConfig): InstanceConfigMap {
   // is not expanded, matching the claude/grok/codex product-fleet probe.
   const PRODUCT_FLEET_ADDITIONS = {
     cursor: { driver: "cursorAgent" },
+    copilot: { driver: "copilotAgent" },
     openaiCompat: { driver: "openai-compat" },
     ...CUSTOM_ONLY,
   } as const;

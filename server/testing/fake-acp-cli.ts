@@ -92,6 +92,10 @@ const dumpEnv = Object.fromEntries(
     "UNSLOTH_STUDIO_AUTH_TOKEN",
     "CURSOR_API_KEY",
     "CURSOR_AUTH_TOKEN",
+    "COPILOT_GITHUB_TOKEN",
+    "GH_TOKEN",
+    "GITHUB_TOKEN",
+    "COPILOT_PROVIDER_API_KEY",
     "KIMI_MODEL_NAME",
     "KIMI_MODEL_API_KEY",
     "KIMI_MODEL_BASE_URL",
@@ -106,6 +110,15 @@ if (process.env.FAKE_ACP_DUMP) {
 }
 if (argv.includes("--version")) {
   console.log("fake-acp 1.0.0");
+  process.exit(0);
+}
+if (argv.includes("--help")) {
+  console.log([
+    "Usage: copilot [options]",
+    '  --model <model>  Set model (choices: "claude-sonnet-4.6",',
+    '                   "gpt-5.3-codex", "gpt-4.1")',
+    "  --no-color      Disable color",
+  ].join("\n"));
   process.exit(0);
 }
 // Cursor's driver probes `agent status` / `agent models` on the same binary

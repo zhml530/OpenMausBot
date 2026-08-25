@@ -112,12 +112,18 @@ describe("default fleet", () => {
     expect(map.cursor).toEqual({ driver: "cursorAgent", environment: {} });
   });
 
+  it("ships GitHub Copilot as a default-fleet subscription engine", () => {
+    const map = instanceConfigs({});
+    expect(map.copilot).toEqual({ driver: "copilotAgent", environment: {} });
+  });
+
   it("adds missing custom-only engines onto an existing product fleet", () => {
     const map = instanceConfigs({ instances: { claude: { driver: "claudeAgent" } } });
     expect(map.claude.driver).toBe("claudeAgent");
     expect(map.qwen?.driver).toBe("qwenAgent");
     expect(map.hermes?.driver).toBe("hermesAgent");
     expect(map.cursor?.driver).toBe("cursorAgent");
+    expect(map.copilot?.driver).toBe("copilotAgent");
     expect(map.openaiCompat?.driver).toBe("openai-compat");
   });
 
