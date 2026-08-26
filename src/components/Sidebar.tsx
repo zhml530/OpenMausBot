@@ -171,7 +171,7 @@ function groupPreview(group: Group, bots: Bot[]): string {
   return last.from ? `${last.from.name}: ${text}` : text;
 }
 
-/** Room avatar: 2–3 overlapping mauses in the same 56px slot a bot gets. */
+/** Room avatar: two overlapping mauses plus a count, bounded to one bot slot. */
 function StackedMauses({ members, density }: { members: Bot[]; density: SidebarDensity }) {
   const iconOnly = density === "icons";
   const slotSize = iconOnly ? "size-12" : density === "compact" ? "size-10" : "size-14";
@@ -184,16 +184,19 @@ function StackedMauses({ members, density }: { members: Bot[]; density: SidebarD
       </div>
     );
   }
-  const shown = members.slice(0, 3);
+  const shown = members.slice(0, 2);
   const extra = members.length - shown.length;
+  const avatarSize = iconOnly ? 28 : density === "compact" ? 24 : 30;
+  const overlap = iconOnly ? "-space-x-[14px]" : density === "compact" ? "-space-x-[13px]" : "-space-x-[14px]";
+  const countSize = iconOnly ? "size-5 text-[9px]" : density === "compact" ? "size-[18px] text-[9px]" : "size-[22px] text-[10px]";
   return (
-    <div className={cn("flex shrink-0 items-center justify-center", slotSize)}>
-      <div className="flex items-center -space-x-3">
+    <div className={cn("flex shrink-0 items-center justify-center overflow-hidden", slotSize)}>
+      <div className={cn("flex max-w-full items-center", overlap)}>
         {shown.map((b) => (
-          <BotAvatar key={b.id} bot={b} state="happy" size={30} animated={false} />
+          <BotAvatar key={b.id} bot={b} state="happy" size={avatarSize} animated={false} />
         ))}
         {extra > 0 && (
-          <span className="z-10 flex size-[22px] items-center justify-center rounded-full border border-hairline/40 bg-raised text-[10px] font-medium text-ink-secondary">
+          <span className={cn("z-10 flex shrink-0 items-center justify-center rounded-full border border-hairline/40 bg-raised font-medium text-ink-secondary", countSize)}>
             +{extra}
           </span>
         )}

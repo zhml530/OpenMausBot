@@ -882,6 +882,14 @@ ipcMain.on("desktop:unread-count", (event, value) => {
   applyUnreadBadge(sender);
 });
 
+ipcMain.on("desktop:title-bar-theme", (event, colors) => {
+  const sender = BrowserWindow.fromWebContents(event.sender);
+  if (process.platform !== "win32" || !sender || sender !== mainWindow || sender.isDestroyed()) return;
+  const validColor = (value) => typeof value === "string" && /^#[0-9a-f]{6}(?:[0-9a-f]{2})?$/i.test(value);
+  if (!validColor(colors?.background) || !validColor(colors?.symbols)) return;
+  sender.setTitleBarOverlay({ color: colors.background, symbolColor: colors.symbols, height: 60 });
+});
+
 function createWindow() {
   const isMac = process.platform === "darwin";
   const primary = screen.getPrimaryDisplay();

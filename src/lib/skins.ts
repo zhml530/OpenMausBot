@@ -21,7 +21,7 @@ export const SKINS: readonly Skin[] = [
   { id: "lagoon", name: "Lagoon", tagline: "Cool daylight. Porcelain and deep teal." },
 ];
 
-export const DEFAULT_SKIN: SkinId = "midnight";
+export const DEFAULT_SKIN: SkinId = "atelier";
 
 const KEY = "omb-skin";
 
@@ -62,6 +62,11 @@ export function readSkin(): SkinId {
  */
 export function applySkin(id: SkinId): void {
   document.documentElement.dataset.skin = id;
+  const styles = getComputedStyle(document.documentElement);
+  window.ogb?.setTitleBarTheme?.({
+    background: styles.getPropertyValue("--color-app").trim(),
+    symbols: styles.getPropertyValue("--color-ink").trim(),
+  });
   try {
     getStore()?.setItem(KEY, id);
   } catch {

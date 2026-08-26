@@ -13,6 +13,7 @@ ipcRenderer.on("package:install", (_event, url) => {
 contextBridge.exposeInMainWorld("ogb", {
   /** Host platform ("darwin" | "win32" | "linux") — for platform-aware UI. */
   platform: process.platform,
+  setTitleBarTheme: (colors) => ipcRenderer.send("desktop:title-bar-theme", colors),
   getCapabilities: () => ipcRenderer.invoke("desktop:capabilities"),
   onCapabilitiesChanged: (cb) => {
     const handler = (_event, capabilities) => cb(capabilities);

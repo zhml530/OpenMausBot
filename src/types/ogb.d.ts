@@ -97,6 +97,7 @@ type SkillRecordingPayload = {
   interface Window {
     ogb?: {
       platform: NodeJS.Platform;
+      setTitleBarTheme(colors: { background: string; symbols: string }): void;
       getCapabilities(): Promise<DesktopCapabilities>;
       onCapabilitiesChanged(cb: (capabilities: DesktopCapabilities) => void): () => void;
       companionAccount?: {
