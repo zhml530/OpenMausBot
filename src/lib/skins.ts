@@ -21,7 +21,7 @@ export const SKINS: readonly Skin[] = [
   { id: "lagoon", name: "Lagoon", tagline: "Cool daylight. Porcelain and deep teal." },
 ];
 
-export const DEFAULT_SKIN: SkinId = "atelier";
+export const DEFAULT_SKIN: SkinId = "lagoon";
 
 const KEY = "omb-skin";
 

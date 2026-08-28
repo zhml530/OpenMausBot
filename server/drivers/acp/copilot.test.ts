@@ -55,6 +55,13 @@ describe("GitHub Copilot ACP support", () => {
     writeFileSync(join(root, "config.json"), JSON.stringify({ lastLoggedInUser: { login: "octocat" } }));
     expect(copilotIsAuthenticated({ COPILOT_HOME: root })).toBe(true);
     expect(copilotIsAuthenticated({ COPILOT_HOME: join(root, "missing") })).toBe(false);
+    const ghRoot = mkdtempSync(join(tmpdir(), "omb-gh-auth-"));
+    scratchDirs.push(ghRoot);
+    writeFileSync(
+      join(ghRoot, "hosts.yml"),
+      "github.com:\n    user: octocat\n    oauth_token: gho_testtoken\n    git_protocol: https\n",
+    );
+    expect(copilotIsAuthenticated({ GH_CONFIG_DIR: ghRoot })).toBe(true);
   });
 
   it("classifies auth, subscription, and quota failures", () => {

@@ -106,11 +106,32 @@ function hasStoredLogin(env: Record<string, string | undefined>): boolean {
   return false;
 }
 
+function hasGhCliLogin(env: Record<string, string | undefined>): boolean {
+  const home = env.HOME || env.USERPROFILE || homedir();
+  const candidates = [
+    env.GH_CONFIG_DIR ? join(env.GH_CONFIG_DIR, "hosts.yml") : "",
+    env.XDG_CONFIG_HOME ? join(env.XDG_CONFIG_HOME, "gh", "hosts.yml") : "",
+    env.APPDATA ? join(env.APPDATA, "GitHub CLI", "hosts.yml") : "",
+    join(home, ".config", "gh", "hosts.yml"),
+  ].filter(Boolean);
+  for (const path of candidates) {
+    if (!existsSync(path)) continue;
+    try {
+      const text = readFileSync(path, "utf8");
+      const githubBlock = text.match(/(?:^|\r?\n)github\.com:\s*(?:\r?\n)([\s\S]*?)(?=\r?\n[^\s]|\s*$)/i)?.[1] ?? text;
+      if (/^\s*oauth_token:\s*["']?[^"'\s\r\n]+/im.test(githubBlock)) return true;
+    } catch {
+      // Unreadable or malformed config should not break provider probing.
+    }
+  }
+  return false;
+}
+
 /** The actual OAuth secret stays in the OS keychain; the ACP turn remains the
  * authority on token expiry. This snapshot only detects stored user metadata. */
 export function copilotIsAuthenticated(env: Record<string, string | undefined>): boolean {
   return nonBlank(env.COPILOT_GITHUB_TOKEN) || nonBlank(env.GH_TOKEN) ||
-    nonBlank(env.GITHUB_TOKEN) || nonBlank(env.COPILOT_PROVIDER_BASE_URL) || hasStoredLogin(env);
+    nonBlank(env.GITHUB_TOKEN) || nonBlank(env.COPILOT_PROVIDER_BASE_URL) || hasStoredLogin(env) || hasGhCliLogin(env);
 }
 
 export function classifyCopilotError(error: CopilotFailure): ProviderErrorCode | undefined {
@@ -128,7 +149,7 @@ export function classifyCopilotError(error: CopilotFailure): ProviderErrorCode |
 
 const support = (run: typeof execCli): AcpSupport => ({
   driverKind: "copilotAgent",
-  displayName: "GitHub Copilot",
+  displayName: "GitHub Copilot CLI",
   models: STATIC_COPILOT_MODELS,
   defaultCli: "copilot",
   nativeSource: "copilot.acp",
