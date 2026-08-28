@@ -385,7 +385,7 @@ export function SettingsModal() {
                   <RoomTurnTimeoutSettings />
                 </Card>
                 <ExperimentalFeaturesRow />
-                <UpdatesRow />
+                {false && <UpdatesRow />}
                 <DiagnosticsRow />
                 <AnalyticsRow />
               </>
