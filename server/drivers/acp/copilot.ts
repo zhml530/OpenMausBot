@@ -95,7 +95,8 @@ function hasStoredLogin(env: Record<string, string | undefined>): boolean {
   const path = join(root, "config.json");
   if (!existsSync(path)) return false;
   try {
-    const parsed: StoredCopilotConfig = JSON.parse(readFileSync(path, "utf8"));
+    const text = readFileSync(path, "utf8").replace(/^\s*\/\/.*$/gm, "");
+    const parsed: StoredCopilotConfig = JSON.parse(text);
     const last = parsed.lastLoggedInUser ?? parsed.lastloggedinuser;
     if (last && Object.keys(last).length > 0) return true;
     const users = parsed.loggedInUsers ?? parsed.loggedinusers;
@@ -127,11 +128,24 @@ function hasGhCliLogin(env: Record<string, string | undefined>): boolean {
   return false;
 }
 
+async function hasGhCliStatus(
+  env: Record<string, string | undefined>,
+  run: typeof execCli = execCli,
+): Promise<boolean> {
+  return (await execText(run, "gh", ["auth", "status", "--hostname", "github.com"], env)) !== null;
+}
+
 /** The actual OAuth secret stays in the OS keychain; the ACP turn remains the
  * authority on token expiry. This snapshot only detects stored user metadata. */
-export function copilotIsAuthenticated(env: Record<string, string | undefined>): boolean {
-  return nonBlank(env.COPILOT_GITHUB_TOKEN) || nonBlank(env.GH_TOKEN) ||
-    nonBlank(env.GITHUB_TOKEN) || nonBlank(env.COPILOT_PROVIDER_BASE_URL) || hasStoredLogin(env) || hasGhCliLogin(env);
+export async function copilotIsAuthenticated(
+  env: Record<string, string | undefined>,
+  run: typeof execCli = execCli,
+): Promise<boolean> {
+  if (
+    nonBlank(env.COPILOT_GITHUB_TOKEN) || nonBlank(env.GH_TOKEN) || nonBlank(env.GITHUB_TOKEN)
+    || nonBlank(env.COPILOT_PROVIDER_BASE_URL) || hasStoredLogin(env) || hasGhCliLogin(env)
+  ) return true;
+  return hasGhCliStatus(env, run);
 }
 
 export function classifyCopilotError(error: CopilotFailure): ProviderErrorCode | undefined {
@@ -149,11 +163,11 @@ export function classifyCopilotError(error: CopilotFailure): ProviderErrorCode |
 
 const support = (run: typeof execCli): AcpSupport => ({
   driverKind: "copilotAgent",
-  displayName: "GitHub Copilot CLI",
+  displayName: "Github Copilot cli",
   models: STATIC_COPILOT_MODELS,
   defaultCli: "copilot",
   nativeSource: "copilot.acp",
-  loginNote: "GitHub Copilot CLI is not signed in — run `copilot login` in a terminal",
+  loginNote: "Github Copilot cli is not signed in — run `copilot login` in a terminal",
   install: {
     command: {
       darwin: "brew install --cask copilot-cli",
@@ -172,7 +186,7 @@ const support = (run: typeof execCli): AcpSupport => ({
   credentialEnv: ["COPILOT_GITHUB_TOKEN", "GH_TOKEN", "GITHUB_TOKEN", "COPILOT_PROVIDER_API_KEY"],
   pickAuthMethod: () => null,
   authFailure: "continue",
-  isAuthenticated: copilotIsAuthenticated,
+  isAuthenticated: (env) => copilotIsAuthenticated(env, run),
   classifyError: (error) => {
     // SAFETY: classification only stringifies the value and reads Error fields;
     // arbitrary thrown values fit this deliberately closed adapter.

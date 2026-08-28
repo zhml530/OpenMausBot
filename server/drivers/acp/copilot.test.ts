@@ -47,21 +47,35 @@ describe("GitHub Copilot ACP support", () => {
     expect(decodeCopilotModelHelp("Usage: copilot")).toBeNull();
   });
 
-  it("detects token, BYOK, and stored-login metadata without reading a secret", () => {
-    expect(copilotIsAuthenticated({ COPILOT_GITHUB_TOKEN: "token" })).toBe(true);
-    expect(copilotIsAuthenticated({ COPILOT_PROVIDER_BASE_URL: "http://localhost:11434" })).toBe(true);
+  it("detects token, BYOK, and stored-login metadata without reading a secret", async () => {
+    expect(await copilotIsAuthenticated({ COPILOT_GITHUB_TOKEN: "token" })).toBe(true);
+    expect(await copilotIsAuthenticated({ COPILOT_PROVIDER_BASE_URL: "http://localhost:11434" })).toBe(true);
     const root = mkdtempSync(join(tmpdir(), "omb-copilot-auth-"));
     scratchDirs.push(root);
-    writeFileSync(join(root, "config.json"), JSON.stringify({ lastLoggedInUser: { login: "octocat" } }));
-    expect(copilotIsAuthenticated({ COPILOT_HOME: root })).toBe(true);
-    expect(copilotIsAuthenticated({ COPILOT_HOME: join(root, "missing") })).toBe(false);
+    writeFileSync(
+      join(root, "config.json"),
+      '// User settings belong in settings.json.\n{"lastLoggedInUser":{"login":"octocat"}}',
+    );
+    expect(await copilotIsAuthenticated({ COPILOT_HOME: root })).toBe(true);
+    expect(await copilotIsAuthenticated({ COPILOT_HOME: join(root, "missing") })).toBe(false);
     const ghRoot = mkdtempSync(join(tmpdir(), "omb-gh-auth-"));
     scratchDirs.push(ghRoot);
     writeFileSync(
       join(ghRoot, "hosts.yml"),
       "github.com:\n    user: octocat\n    oauth_token: gho_testtoken\n    git_protocol: https\n",
     );
-    expect(copilotIsAuthenticated({ GH_CONFIG_DIR: ghRoot })).toBe(true);
+    expect(await copilotIsAuthenticated({ GH_CONFIG_DIR: ghRoot })).toBe(true);
+  });
+
+  it("accepts an authenticated gh session when token metadata is unavailable", async () => {
+    const authed = await copilotIsAuthenticated(
+      {},
+      (_cli, _args, _opts, cb) => cb(null, "Logged in to github.com as octocat"),
+    );
+    expect(authed).toBe(true);
+
+    const notAuthed = await copilotIsAuthenticated({}, (_cli, _args, _opts, cb) => cb(new Error("not logged in"), ""));
+    expect(notAuthed).toBe(false);
   });
 
   it("classifies auth, subscription, and quota failures", () => {
