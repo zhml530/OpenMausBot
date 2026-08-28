@@ -160,11 +160,11 @@ type SkillRecordingPayload = {
       openInstallTerminal?(command: string): Promise<boolean>;
       /** Opens an http(s) link in the user's default browser. */
       openExternal?(url: string): Promise<boolean>;
-      /** Receives a GitHub package URL opened through openmausbot://install. */
+      /** Receives a GitHub package URL opened through Roundtable://install. */
       onPackageInstall?(cb: (url: string) => void): () => void;
       /** Updates the native Dock/taskbar unread indicator. */
       setUnreadCount?(count: number): void;
-      /** Opens a live desktop as a sandboxed window owned by OpenMausBot. */
+      /** Opens a live desktop as a sandboxed window owned by Roundtable. */
       desktopViewer?: {
         open(url: string, title: string, contextId: string): Promise<boolean>;
         /** Closes the live-desktop window, but only when it belongs to this bot. */
@@ -261,3 +261,4 @@ export type AndroidDeviceInput =
     }
   | { type: "key"; key: string; width?: number; height?: number }
   | { type: "text"; text: string; width?: number; height?: number };
+

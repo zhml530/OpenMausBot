@@ -12,7 +12,7 @@ const TARGET =
     ? {
         pid: 31337,
         socketPath:
-          "\\\\.\\pipe\\openmausbot-companion-origin-31337-12345678-1234-1234-1234-123456789abc",
+          "\\\\.\\pipe\\Roundtable-companion-origin-31337-12345678-1234-1234-1234-123456789abc",
       }
     : { pid: 31337, socketPath: "/tmp/omb-companion-origin-guardian/origin.sock" };
 
@@ -161,3 +161,4 @@ describe("connector environment", () => {
     ).toEqual({ PATH: "/usr/bin", SystemRoot: "C:\\Windows", TEMP: "C:\\Temp" });
   });
 });
+

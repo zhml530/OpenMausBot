@@ -4,10 +4,10 @@
 // built-in MCP"). This extension is that client: loaded into the per-turn
 // `pi --mode rpc --no-session` process via `-e`, it reads a JSON file whose
 // path is handed in through OMB_MCP_CONFIG and mounts every server described
-// there as first-class pi tools (pi.registerTool). OpenMausBot ships this file
+// there as first-class pi tools (pi.registerTool). Roundtable ships this file
 // and the pi driver spawns it — the pi repo itself is never touched.
 //
-// Protocol: the OpenMausBot proxies speak raw JSON-RPC 2.0 over stdio, one
+// Protocol: the Roundtable proxies speak raw JSON-RPC 2.0 over stdio, one
 // frame per line (no MCP SDK, no Content-Length framing) — see
 // server/mcp-bridge.ts and server/drivers/agents-proxy.ts. This client matches
 // that exactly.
@@ -35,7 +35,7 @@ interface McpTool {
   inputSchema?: unknown;
 }
 
-/** A minimal stdio JSON-RPC 2.0 MCP client, matched to OpenMausBot's
+/** A minimal stdio JSON-RPC 2.0 MCP client, matched to Roundtable's
  * newline-delimited house protocol. */
 class StdioMcp {
   private child: ChildProcessWithoutNullStreams;
@@ -123,7 +123,7 @@ class StdioMcp {
     await this.call("initialize", {
       protocolVersion: "2024-11-05",
       capabilities: {},
-      clientInfo: { name: "openmausbot-pi", version: "1" },
+      clientInfo: { name: "Roundtable-pi", version: "1" },
     });
     this.notify("notifications/initialized");
   }
@@ -285,7 +285,7 @@ export default async function (pi: ExtensionAPI): Promise<void> {
       // A server that fails to initialize must not take the whole turn down:
       // skip its tools and let the agent work with whatever else mounted.
       const message = err instanceof Error ? err.message : String(err);
-      process.stderr.write(`[openmausbot-pi-mcp] ${serverName}: ${message}\n`);
+      process.stderr.write(`[Roundtable-pi-mcp] ${serverName}: ${message}\n`);
       client?.dispose();
     }
   }
@@ -295,3 +295,4 @@ export default async function (pi: ExtensionAPI): Promise<void> {
     clients.length = 0;
   });
 }
+

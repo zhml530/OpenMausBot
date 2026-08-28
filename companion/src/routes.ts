@@ -167,7 +167,7 @@ export function denyReason({ path, method, authenticated }: RouteRequest): Denia
   if (method === "GET" && path === "/api/health") return null;
 
   if (!authenticated) {
-    return { status: 401, error: "pair this device from the OpenMausBot companion on your computer" };
+    return { status: 401, error: "pair this device from the Roundtable companion on your computer" };
   }
 
   if (ALLOWED.some((route) => route.method === method && route.path.test(path))) return null;
@@ -182,3 +182,4 @@ export function denyReason({ path, method, authenticated }: RouteRequest): Denia
   // genuinely do not exist.
   return { status: 404, error: `no route: ${method} ${path}` };
 }
+

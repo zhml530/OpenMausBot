@@ -14,7 +14,7 @@ import OSLog
 
 /// Same subsystem the app's own stream logging uses, so a session reads as
 /// one story in Console rather than two halves under different names.
-private let log = Logger(subsystem: "com.openmausbot.companion", category: "stream")
+private let log = Logger(subsystem: "com.Roundtable.companion", category: "stream")
 
 /// One event off the wire, before it is understood as a `Frame`.
 public struct SSEEvent: Equatable, Sendable {
@@ -180,3 +180,4 @@ public func eventStream(
         continuation.onTermination = { _ in task.cancel() }
     }
 }
+

@@ -296,7 +296,7 @@ async function processOne(
   const channel = getOrCreateChannel(bus.store, sender, target);
   mirrorExchange(bus, sender, target, item.message, channel, sourceThreadId);
   const reasonLine = item.reason ? `\n\n[Reason: ${item.reason}]` : "";
-  const prefixed = `[Delegated by @${sender.name}, another bot in this OpenMausBot workspace. Do the work and reply directly.]\n\n${item.message}${reasonLine}`;
+  const prefixed = `[Delegated by @${sender.name}, another bot in this Roundtable workspace. Do the work and reply directly.]\n\n${item.message}${reasonLine}`;
   await runTarget(item.toBotId, prefixed, item.depth + 1, sourceThreadId, channel);
 }
 
@@ -310,3 +310,4 @@ export function _resetPending(): void {
   pendingDelegations.clear();
   drainingThreads.clear();
 }
+

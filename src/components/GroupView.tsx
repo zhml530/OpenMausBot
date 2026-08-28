@@ -24,7 +24,7 @@ import { ReplyQuote } from "./ReplyQuote";
 import { ConnectorCard } from "./ConnectorCard";
 import { SecretRequestCard } from "./SecretRequestCard";
 import { AttachedImageGallery } from "./AttachmentPreview";
-import { GroupCallButton, GroupCallOverlay } from "./GroupCallView";
+import { GroupCallOverlay } from "./GroupCallView";
 import { ReactionBar, ReactionChips } from "./Reactions";
 import { ApprovalCard } from "./ApprovalCard";
 import { ManageMembersPanel } from "./ManageMembersPanel";
@@ -941,7 +941,6 @@ export function GroupView({ group }: { group: Group }) {
           >
             <Search size={18} />
           </button>
-          <GroupCallButton group={group} members={members} />
           {!setupPending && !group.dm && <RoomWorkingFolderChip group={group} onToggle={() => setFolderOpen((open) => !open)} />}
           {!setupPending && !group.dm && <DefaultResponderSelect group={group} members={members} />}
           {group.dm ? (

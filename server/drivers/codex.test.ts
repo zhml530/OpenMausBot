@@ -90,7 +90,7 @@ describe("CodexDriver turns (fake app-server)", () => {
       "turn.started",
       "session.started",
       "item.started", // commandExecution ls -la
-      "item.started", // webSearch OpenMausBot
+      "item.started", // webSearch Roundtable
       "item.completed", // commandExecution done
       "item.completed", // webSearch done
       "content.delta",
@@ -183,7 +183,7 @@ describe("CodexDriver turns (fake app-server)", () => {
     });
     await recorder.until((event) => event.type === "turn.completed");
     const seen = JSON.parse(readFileSync(dump, "utf8"));
-    expect(seen.argv.join(" ")).toContain("mcp_servers.openmausbot_connectors.command");
+    expect(seen.argv.join(" ")).toContain("mcp_servers.Roundtable_connectors.command");
     expect(seen.argv.join(" ")).toContain("OMB_COMMS_TOKEN");
     expect(seen.argv.join(" ")).not.toContain("per-boot-token");
     expect(seen.env.OMB_COMMS_TOKEN).toBe("per-boot-token");
@@ -235,7 +235,7 @@ describe("CodexDriver turns (fake app-server)", () => {
       integrations: {
         localComputer: {
           command: process.execPath,
-          args: ["/tmp/container-mcp.js", "podman", "openmausbot-computer", "/run/cua.sock"],
+          args: ["/tmp/container-mcp.js", "podman", "Roundtable-computer", "/run/cua.sock"],
           env: { ELECTRON_RUN_AS_NODE: "1", OMB_VM_TOKEN: "vm-secret" },
         },
       },
@@ -291,7 +291,7 @@ describe("CodexDriver turns (fake app-server)", () => {
     const seen = JSON.parse(readFileSync(dump, "utf8"));
     expect(seen.argv).toContain("model_providers.unsloth.base_url=\"http://127.0.0.1:8888/v1\"");
     expect(JSON.stringify(seen.argv)).not.toContain("unsloth-secret");
-    expect(seen.env.OPENMAUSBOT_LOCAL_UNSLOTH_API_KEY).toBe("unsloth-secret");
+    expect(seen.env.Roundtable_LOCAL_UNSLOTH_API_KEY).toBe("unsloth-secret");
   });
 
   it("streams agentMessage deltas without re-emitting the settled text", async () => {
@@ -572,3 +572,4 @@ describe("CodexDriver turns (fake app-server)", () => {
     expect(turnStart.params).not.toHaveProperty("effort");
   });
 });
+

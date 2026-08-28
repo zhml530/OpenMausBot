@@ -68,7 +68,7 @@ describe("isJson", () => {
   // skips scrubbing to reach a phone.
   it("matches structured JSON suffixes too", () => {
     expect(isJson("application/problem+json")).toBe(true);
-    expect(isJson("application/vnd.openmausbot.bot+json; charset=utf-8")).toBe(true);
+    expect(isJson("application/vnd.Roundtable.bot+json; charset=utf-8")).toBe(true);
     expect(isJson("APPLICATION/PROBLEM+JSON")).toBe(true);
     // and does not match something that merely ends in the letters
     expect(isJson("text/notjson")).toBe(false);
@@ -166,3 +166,4 @@ describe("createSseScrubber", () => {
     expect(createSseScrubber()('data: {"a":1,"resumeCursors":{}}\r\r')).toBe('data: {"a":1}\r\r');
   });
 });
+

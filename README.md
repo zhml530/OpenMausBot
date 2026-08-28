@@ -1,8 +1,8 @@
-> ⚠️ **No affiliation with any cryptocurrency.** OpenMausBot has no token. Any coin using the OpenMausBot, Maus, or SupaMaus name is not created, endorsed, or affiliated with this project or its maintainer. I have received no tokens, payment, or allocation from anyone, and I will not be endorsing any token.
+> ⚠️ **No affiliation with any cryptocurrency.** Roundtable has no token. Any coin using the Roundtable, Maus, or SupaMaus name is not created, endorsed, or affiliated with this project or its maintainer. I have received no tokens, payment, or allocation from anyone, and I will not be endorsing any token.
 
 <div align="center">
 
-# OpenMausBot
+# Roundtable
 
 **Your own team of AI bots, in a chat app.**
 
@@ -20,34 +20,34 @@ Talk to them like contacts. Watch them work. Approve what matters.
 
 <br>
 
-<a href="https://github.com/milind-soni/openmausbot-releases/releases/latest/download/OpenMausBot.dmg">
-  <img src="https://img.shields.io/github/v/release/milind-soni/openmausbot-releases?style=for-the-badge&label=%E2%AC%87%EF%B8%8F%20%20Download%20for%20Mac%20%28Apple%20silicon%29&labelColor=070707&color=1084fe&cacheSeconds=300" alt="Download the latest OpenMausBot for Mac with Apple silicon (.dmg)" height="40">
+<a href="https://github.com/milind-soni/Roundtable-releases/releases/latest/download/Roundtable.dmg">
+  <img src="https://img.shields.io/github/v/release/milind-soni/Roundtable-releases?style=for-the-badge&label=%E2%AC%87%EF%B8%8F%20%20Download%20for%20Mac%20%28Apple%20silicon%29&labelColor=070707&color=1084fe&cacheSeconds=300" alt="Download the latest Roundtable for Mac with Apple silicon (.dmg)" height="40">
 </a>
 &nbsp;
-<a href="https://github.com/milind-soni/openmausbot-releases/releases/latest/download/OpenMausBot-intel.dmg">
-  <img src="https://img.shields.io/github/v/release/milind-soni/openmausbot-releases?style=for-the-badge&label=%E2%AC%87%EF%B8%8F%20%20Download%20for%20Mac%20%28Intel%29&labelColor=070707&color=2a9d8f&cacheSeconds=300" alt="Download the latest OpenMausBot for Intel Macs (.dmg)" height="40">
+<a href="https://github.com/milind-soni/Roundtable-releases/releases/latest/download/Roundtable-intel.dmg">
+  <img src="https://img.shields.io/github/v/release/milind-soni/Roundtable-releases?style=for-the-badge&label=%E2%AC%87%EF%B8%8F%20%20Download%20for%20Mac%20%28Intel%29&labelColor=070707&color=2a9d8f&cacheSeconds=300" alt="Download the latest Roundtable for Intel Macs (.dmg)" height="40">
 </a>
 &nbsp;
-<a href="https://github.com/milind-soni/openmausbot-releases/releases/latest/download/OpenMausBot-setup.exe">
-  <img src="https://img.shields.io/github/v/release/milind-soni/openmausbot-releases?style=for-the-badge&label=%E2%AC%87%EF%B8%8F%20%20Download%20for%20Windows&labelColor=070707&color=4cc2ff&cacheSeconds=300" alt="Download the latest OpenMausBot for Windows (.exe)" height="40">
+<a href="https://github.com/milind-soni/Roundtable-releases/releases/latest/download/Roundtable-setup.exe">
+  <img src="https://img.shields.io/github/v/release/milind-soni/Roundtable-releases?style=for-the-badge&label=%E2%AC%87%EF%B8%8F%20%20Download%20for%20Windows&labelColor=070707&color=4cc2ff&cacheSeconds=300" alt="Download the latest Roundtable for Windows (.exe)" height="40">
 </a>
 &nbsp;
-<a href="https://github.com/milind-soni/openmausbot-releases/releases/latest/download/OpenMausBot-amd64.deb">
-  <img src="https://img.shields.io/github/v/release/milind-soni/openmausbot-releases?style=for-the-badge&label=%E2%AC%87%EF%B8%8F%20%20Download%20for%20Ubuntu&labelColor=070707&color=e95420&cacheSeconds=300" alt="Download the latest OpenMausBot for Ubuntu (.deb)" height="40">
+<a href="https://github.com/milind-soni/Roundtable-releases/releases/latest/download/Roundtable-amd64.deb">
+  <img src="https://img.shields.io/github/v/release/milind-soni/Roundtable-releases?style=for-the-badge&label=%E2%AC%87%EF%B8%8F%20%20Download%20for%20Ubuntu&labelColor=070707&color=e95420&cacheSeconds=300" alt="Download the latest Roundtable for Ubuntu (.deb)" height="40">
 </a>
 
-<sub>macOS: Apple silicon & Intel · signed & notarized .dmg &nbsp;·&nbsp; Windows: x64 installer &nbsp;·&nbsp; Ubuntu 24.04 x64: .deb or AppImage beta &nbsp;·&nbsp; [all releases](https://github.com/milind-soni/openmausbot-releases/releases)</sub>
+<sub>macOS: Apple silicon & Intel · signed & notarized .dmg &nbsp;·&nbsp; Windows: x64 installer &nbsp;·&nbsp; Ubuntu 24.04 x64: .deb or AppImage beta &nbsp;·&nbsp; [all releases](https://github.com/milind-soni/Roundtable-releases/releases)</sub>
 
 <br>
 
 <a href="https://buy.polar.sh/polar_cl_EEzWmormSVBD151HkmkyId9j0GPXina0KurfS1fYYcO">
-  <img src="https://img.shields.io/badge/%E2%9D%A4%EF%B8%8F%20%20Support%20OpenMausBot-any%20amount%20%C2%B7%20or%20monthly-38d591?style=for-the-badge&labelColor=070707" alt="Support OpenMausBot — one-time any amount or monthly, via Polar" height="40">
+  <img src="https://img.shields.io/badge/%E2%9D%A4%EF%B8%8F%20%20Support%20Roundtable-any%20amount%20%C2%B7%20or%20monthly-38d591?style=for-the-badge&labelColor=070707" alt="Support Roundtable — one-time any amount or monthly, via Polar" height="40">
 </a>
 
 <br>
 <br>
 
-<img src="docs/screenshots/hero.png" alt="OpenMausBot — a Telegram-style chat app where every chat is a real AI agent" width="900">
+<img src="docs/screenshots/hero.png" alt="Roundtable — a Telegram-style chat app where every chat is a real AI agent" width="900">
 
 </div>
 
@@ -55,7 +55,7 @@ Talk to them like contacts. Watch them work. Approve what matters.
 
 ## Why
 
-One assistant in one box is the wrong shape for agents. OpenMausBot is an open-source take on **Grok Bot** —
+One assistant in one box is the wrong shape for agents. Roundtable is an open-source take on **Grok Bot** —
 it keeps the idea (AI as a *messaging app*: a roster of bots you chat with, each with its own personality,
 memory of its thread, model, computer, and apps) and rebuilds it open, local-first, and on the agents you
 already have:
@@ -64,7 +64,7 @@ already have:
   — your existing logins and subscriptions, no new accounts, no proxy in the middle. Point any engine at a
   custom CLI binary (a versioned build or wrapper) in **Settings → Engines**.
 - **Local first.** One small harness server on `127.0.0.1` owns every agent process. Transcripts, keys, and
-  events live in `~/.openmausbot`, not a cloud.
+  events live in `~/.Roundtable`, not a cloud.
 - **Agents with hands.** Each bot can use a cloud Linux desktop, an isolated Local VM, or—where the platform
   safety boundary is currently certified—your own computer, plus 500+ apps through Composio. Host control is
   available on macOS and Ubuntu Xorg after explicit opt-in. Ubuntu Wayland host control remains disabled while
@@ -149,17 +149,17 @@ channel and its bots under a named context, then rename it or change its members
 
 ### 📦 Install a complete team from one Markdown file
 
-Browse outcome-driven teams on [BotMRR](https://botmrr.io), then choose **Add to OpenMausBot**. The app
+Browse outcome-driven teams on [BotMRR](https://botmrr.io), then choose **Add to Roundtable**. The app
 opens a review screen before creating the bots, Chief of Staff, channels, playbooks, connector checklist,
 and suggested routines. You can also import the same `.md` file from disk or paste its public GitHub URL
 in **Teams → Import**.
 
-The format stays portable: OpenMausBot reads the structured YAML frontmatter for a reliable one-click
+The format stays portable: Roundtable reads the structured YAML frontmatter for a reliable one-click
 install, while Grok, Claude, ChatGPT, and people can follow the ordinary Markdown playbook. Connections
 remain off until you approve them, routines arrive paused, and packages never carry credentials,
 conversations, permissions, memory, or computer access. Browse the
-[open-source playbook repository](https://github.com/milind-soni/openmausbot-teams) or read its
-[portable format](https://github.com/milind-soni/openmausbot-teams/blob/main/FORMAT.md).
+[open-source playbook repository](https://github.com/milind-soni/Roundtable-teams) or read its
+[portable format](https://github.com/milind-soni/Roundtable-teams/blob/main/FORMAT.md).
 
 ### 🎧 Bots that talk back
 
@@ -217,17 +217,17 @@ flowchart LR
 
 | | Download | Install |
 |---|---|---|
-| **macOS** (Apple silicon) | [OpenMausBot.dmg](https://github.com/milind-soni/openmausbot-releases/releases/latest/download/OpenMausBot.dmg) | Drag it to Applications, open it. Signed & notarized. |
-| **macOS** (Intel) | [OpenMausBot-intel.dmg](https://github.com/milind-soni/openmausbot-releases/releases/latest/download/OpenMausBot-intel.dmg) | Same app, built for Intel Macs. Signed & notarized. |
-| **Windows** (x64) | [OpenMausBot-setup.exe](https://github.com/milind-soni/openmausbot-releases/releases/latest/download/OpenMausBot-setup.exe) | Run it — one-click, per-user, no admin rights. The installer isn't code-signed yet, so SmartScreen shows "unknown publisher": **More info → Run anyway**. |
-| **Ubuntu 24.04** (x64) | [OpenMausBot-amd64.deb](https://github.com/milind-soni/openmausbot-releases/releases/latest/download/OpenMausBot-amd64.deb) · [OpenMausBot.AppImage](https://github.com/milind-soni/openmausbot-releases/releases/latest/download/OpenMausBot.AppImage) | Install the `.deb` with APT (recommended), or make the AppImage executable and run it. Beta; GNOME is the supported desktop. |
+| **macOS** (Apple silicon) | [Roundtable.dmg](https://github.com/milind-soni/Roundtable-releases/releases/latest/download/Roundtable.dmg) | Drag it to Applications, open it. Signed & notarized. |
+| **macOS** (Intel) | [Roundtable-intel.dmg](https://github.com/milind-soni/Roundtable-releases/releases/latest/download/Roundtable-intel.dmg) | Same app, built for Intel Macs. Signed & notarized. |
+| **Windows** (x64) | [Roundtable-setup.exe](https://github.com/milind-soni/Roundtable-releases/releases/latest/download/Roundtable-setup.exe) | Run it — one-click, per-user, no admin rights. The installer isn't code-signed yet, so SmartScreen shows "unknown publisher": **More info → Run anyway**. |
+| **Ubuntu 24.04** (x64) | [Roundtable-amd64.deb](https://github.com/milind-soni/Roundtable-releases/releases/latest/download/Roundtable-amd64.deb) · [Roundtable.AppImage](https://github.com/milind-soni/Roundtable-releases/releases/latest/download/Roundtable.AppImage) | Install the `.deb` with APT (recommended), or make the AppImage executable and run it. Beta; GNOME is the supported desktop. |
 
 See the [Ubuntu Desktop guide](docs/linux-desktop.md) for installation, capabilities, and troubleshooting.
 
 **From source:**
 
 ```sh
-git clone https://github.com/milind-soni/OpenMausBot && cd OpenMausBot
+git clone https://github.com/milind-soni/Roundtable && cd Roundtable
 pnpm install
 
 pnpm dev:server    # harness server → 127.0.0.1:8799
@@ -261,9 +261,9 @@ The Linux preview is user-initiated and never enables local bot control or Auto 
 Driver 0.19.3 runtime starts only after explicit opt-in and without its full-screen cursor overlay. On Wayland the
 app never starts it and clears legacy opt-ins while that real-seat safety gate remains unresolved. Chat, preview,
 Cloud, and Local VM remain available on both sessions. See the [Ubuntu Desktop guide](docs/linux-desktop.md) and tracking
-issues [#29](https://github.com/milind-soni/OpenMausBot/issues/29),
-[#345](https://github.com/milind-soni/OpenMausBot/issues/345), and
-[#113](https://github.com/milind-soni/OpenMausBot/issues/113).
+issues [#29](https://github.com/milind-soni/Roundtable/issues/29),
+[#345](https://github.com/milind-soni/Roundtable/issues/345), and
+[#113](https://github.com/milind-soni/Roundtable/issues/113).
 
 The Linux packager downloads only the tag-pinned upstream archive during the build, verifies its size, SHA-256,
 complete member allowlist, and inner executable hashes, then packages only the CLI and cursor-theme sidecar. The
@@ -276,7 +276,7 @@ in the sidebar footer) when you want to enable its integration:
 
 | Credential | What it enables | Where to get it |
 |---|---|---|
-| Composio project key (`ak_…`) | Connect Gmail, GitHub, Slack, Notion, and other apps to your bots | [OpenMausBot Composio setup](docs/composio.md) |
+| Composio project key (`ak_…`) | Connect Gmail, GitHub, Slack, Notion, and other apps to your bots | [Roundtable Composio setup](docs/composio.md) |
 | Box API key | Give bots an isolated remote Linux computer with a desktop and terminal | [Box API key guide](https://docs.ascii.dev/box/api-keys) |
 | ElevenLabs key | Read replies aloud, and call your bots | [ElevenLabs API keys](https://elevenlabs.io/app/settings/api-keys) |
 
@@ -298,12 +298,12 @@ Routines can run once or on selected weekdays, using either a MAUS's configured 
 Cloud VM runner. Webhook triggers are independent from schedules but reuse the same queued task executor
 and calendar receipts.
 
-OpenMausBot starts a webhook-only receiver on `127.0.0.1:8800` by default (or one port above `OMB_PORT`).
+Roundtable starts a webhook-only receiver on `127.0.0.1:8800` by default (or one port above `OMB_PORT`).
 Set `OMB_WEBHOOK_PORT` to choose another port. A webhook secret is shown once when the trigger is created
 or rotated. Bearer authentication is recommended so the secret stays out of request URLs and most access
 logs; a single capability URL remains available for senders that cannot configure headers. The receiver
 exposes only `/health` and secret `/hooks/...` endpoints; it never exposes the app's broader API.
-OpenMausBot must remain running to accept a delivery. For public internet delivery, proxy only this
+Roundtable must remain running to accept a delivery. For public internet delivery, proxy only this
 dedicated receiver through a hosted relay or a tool such as Tailscale Funnel.
 
 ## Status
@@ -320,19 +320,20 @@ small; adding a provider is one file in [`server/drivers/`](server/drivers/) plu
 
 ## Support the project
 
-OpenMausBot is free and open source. If it does real work for you, you can
+Roundtable is free and open source. If it does real work for you, you can
 [buy the project a coffee or become a monthly supporter](https://buy.polar.sh/polar_cl_EEzWmormSVBD151HkmkyId9j0GPXina0KurfS1fYYcO) —
 one-time any amount, or monthly. Payments are handled by [Polar](https://polar.sh/supamaus),
 which takes care of receipts and taxes; nothing about the app ever sits behind a paywall.
 
 ## License
 
-[Apache License 2.0](LICENSE) © 2026 Milind Soni and OpenMausBot contributors.
+[Apache License 2.0](LICENSE) © 2026 Milind Soni and Roundtable contributors.
 
 Packaged Cua Driver components retain their upstream MIT, SIL OFL 1.1, MPL-2.0, and other dependency terms;
 the corresponding notices, license texts, source locations, and SBOM are in
 [`third_party/cua-driver/`](third_party/cua-driver/) and ship beside the native runtime.
 
-OpenMausBot is an independent, open-source project inspired by Grok Bot. It is
+Roundtable is an independent, open-source project inspired by Grok Bot. It is
 not affiliated with, endorsed by, or associated with xAI; "Grok" is a trademark
 of its respective owner.
+

@@ -2,7 +2,7 @@
 // electron-builder will package on this host. The release asset is verified
 // before extraction and the executable is verified again on every reuse.
 // Nothing is installed globally and cloudflared's own updater stays disabled;
-// OpenMausBot updates this dependency with an ordinary reviewed app release.
+// Roundtable updates this dependency with an ordinary reviewed app release.
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import {
@@ -256,3 +256,4 @@ export async function prepareCloudflared({
 if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) {
   await prepareCloudflared();
 }
+

@@ -447,7 +447,7 @@ guard let stopFile = argument("--stop-file") else {
 }
 let trustOptions = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
 guard AXIsProcessTrustedWithOptions(trustOptions) else {
-    fputs("Allow OpenMausBot Recorder in Privacy & Security → Accessibility, then try again. Input Monitoring may also be requested.\n", stderr)
+    fputs("Allow Roundtable Recorder in Privacy & Security → Accessibility, then try again. Input Monitoring may also be requested.\n", stderr)
     exit(3)
 }
 let recorder = Recorder(stopFile: stopFile)
@@ -456,3 +456,4 @@ guard recorder.start() else {
     exit(4)
 }
 RunLoop.main.run()
+

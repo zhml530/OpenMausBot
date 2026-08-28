@@ -210,7 +210,7 @@ export function CompanionSection() {
     return (
       <Card
         title="Companion"
-        subtitle="The companion runs as its own process, which only the desktop app can start. Open OpenMausBot on this computer to turn it on."
+        subtitle="The companion runs as its own process, which only the desktop app can start. Open Roundtable on this computer to turn it on."
       >
         <div />
       </Card>
@@ -313,7 +313,7 @@ export function CompanionSection() {
             You're on a tailnet, but this computer's MagicDNS name couldn't be read from the
             Tailscale app — either MagicDNS is off, or the Tailscale command line tool isn't
             where we looked. iPhones can't connect to a bare tailnet address, so check the
-            OpenMausBot log for which paths were tried.
+            Roundtable log for which paths were tried.
           </div>
         )}
         {state.enabled && !hosted && !state.tailscale && (
@@ -566,3 +566,4 @@ const cnSwitch = (on: boolean) =>
   `relative h-6 w-11 shrink-0 rounded-full transition-colors disabled:opacity-40 ${on ? "bg-accent" : "bg-control"}`;
 const cnKnob = (on: boolean) =>
   `absolute top-[3px] h-[18px] w-[18px] rounded-full bg-white transition-all ${on ? "left-[21px]" : "left-[3px]"}`;
+

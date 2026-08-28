@@ -50,7 +50,7 @@ const device = async (
 
 beforeAll(async () => {
   harness = createServer((req, res) => {
-    companionMarker = String(req.headers["x-openmausbot-companion"] ?? "");
+    companionMarker = String(req.headers["x-Roundtable-companion"] ?? "");
     respond(res);
   });
   const harnessPort = await listen(harness);
@@ -91,7 +91,7 @@ describe("preparing a harness response for a device", () => {
     try {
       const { status, text } = await device("/api/bots/b1/computer/join", "POST");
       expect(status).toBe(403);
-      expect(text).toContain("enable it in OpenMausBot");
+      expect(text).toContain("enable it in Roundtable");
     } finally {
       cloudDesktopAccess = true;
     }
@@ -200,3 +200,4 @@ describe("preparing a harness response for a device", () => {
     expect(response.headers.get("cdn-cache-control")).toBe("no-store");
   });
 });
+

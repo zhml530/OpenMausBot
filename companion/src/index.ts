@@ -48,7 +48,7 @@ const HARNESS_PORT = num(process.env.OMB_PORT, 8799);
 const WEBHOOK_PORT = num(process.env.OMB_WEBHOOK_PORT, HARNESS_PORT + 1);
 const COMPANION_PORT = num(process.env.OMB_COMPANION_PORT, 8810);
 const CONTROL_PORT = num(process.env.OMB_CONTROL_PORT, 8811);
-const SERVICE_TYPE = "_openmausbot._tcp";
+const SERVICE_TYPE = "_Roundtable._tcp";
 let hostedUrl = hostedCompanionUrl(process.env.OMB_COMPANION_HOSTED_URL);
 const PRIVATE_ORIGIN = companionOriginSocket(process.env.OMB_COMPANION_INTERNAL_ORIGIN);
 
@@ -83,7 +83,7 @@ const conflict = (name: string, port: number): string | null => {
 let cachedName = process.env.OMB_COMPANION_NAME?.trim() || "";
 
 /** What this computer is called on the phone. Never empty. */
-const machineName = (): string => cachedName || "OpenMausBot";
+const machineName = (): string => cachedName || "Roundtable";
 
 /** Ask the harness whose computer this is, once, at startup. Every failure
  * is survivable: the name is a label, and no part of pairing depends on it. */
@@ -98,7 +98,7 @@ async function refreshMachineName(): Promise<void> {
     const owner = config.profile?.name?.trim();
     if (owner) cachedName = `${owner}'s computer`;
   } catch {
-    /* not up, or no profile — "OpenMausBot" is a fine thing to be called */
+    /* not up, or no profile — "Roundtable" is a fine thing to be called */
   }
 }
 
@@ -288,3 +288,4 @@ main().catch((error: unknown) => {
   console.error(error instanceof Error ? error.message : String(error));
   process.exit(1);
 });
+

@@ -55,6 +55,11 @@ export function registerUpdaterIpc() {
 
 export function startUpdater(mainWindow) {
   win = mainWindow;
+  // App-wide update checks are intentionally disabled.
+  updaterCoordinator = null;
+  setState({ status: "idle" });
+  return;
+
   // dev / unsigned builds can't auto-update — leave the banner dormant
   if (!app.isPackaged) {
     updaterCoordinator = null;

@@ -115,9 +115,9 @@ posixOnly("authorization decisions are logged", () => {
   beforeAll(async () => {
     chmodSync(FAKE_CLI, 0o755);
     home = mkdtempSync(join(tmpdir(), "omb-decisions-e2e-"));
-    mkdirSync(join(home, ".openmausbot"), { recursive: true });
+    mkdirSync(join(home, ".Roundtable"), { recursive: true });
     writeFileSync(
-      join(home, ".openmausbot", "config.json"),
+      join(home, ".Roundtable", "config.json"),
       JSON.stringify({
         instances: {
           grok: {
@@ -272,3 +272,4 @@ posixOnly("authorization decisions are logged", () => {
     expect((await api("GET", "/api/decisions?limit=nope")).status).toBe(400);
   });
 });
+

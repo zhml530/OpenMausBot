@@ -134,7 +134,7 @@ export function applyManagedBrokerMessage(message: unknown): boolean {
   const parsed = managedBrokerMessageSchema.safeParse(message);
   if (
     !parsed.success ||
-    parsed.data.type !== "openmausbot:managed-composio" ||
+    parsed.data.type !== "Roundtable:managed-composio" ||
     !Object.hasOwn(parsed.data, "access")
   ) {
     return false;
@@ -280,7 +280,7 @@ export async function prepareProjectSession(
     if (existing && supportsMultiAccount(existing)) {
       return {
         apiKey: trimmed,
-        userId: existing.config?.user_id ?? current.userId ?? `openmausbot_${randomUUID()}`,
+        userId: existing.config?.user_id ?? current.userId ?? `Roundtable_${randomUUID()}`,
         sessionId: existing.session_id,
       };
     }
@@ -290,7 +290,7 @@ export async function prepareProjectSession(
     priorUserId = existing?.config?.user_id ?? priorUserId;
   }
 
-  const userId = priorUserId ?? `openmausbot_${randomUUID()}`;
+  const userId = priorUserId ?? `Roundtable_${randomUUID()}`;
   const res = await fetch(`${apiBase()}/tool_router/session`, {
     method: "POST",
     headers: projectHeaders(trimmed, true),
@@ -806,3 +806,4 @@ export async function toolkitCard(cfg: AppConfig, slug: string): Promise<Toolkit
 }
 
 export const CURATED_SLUGS = CURATED.map((c) => c.slug);
+

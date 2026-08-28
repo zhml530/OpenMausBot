@@ -9,7 +9,7 @@ import {
   withoutManagedCompanionTunnelAccess,
 } from "./managed-companion-tunnel.mjs";
 
-export const DEFAULT_COMPANION_CONTROL_PLANE_URL = "https://accounts.openmausbot.com";
+export const DEFAULT_COMPANION_CONTROL_PLANE_URL = "https://accounts.Roundtable.com";
 
 export const COMPANION_CLIENT_INSTANCE_FIELD = "companionClientInstanceId";
 export const COMPANION_ACCOUNT_TOKEN_FIELD = "companionAccountToken";
@@ -130,7 +130,7 @@ const FRIENDLY_MESSAGES = Object.freeze({
   otp_expired: "That code expired. Email yourself a new one.",
   unauthorized: "Your sign-in expired. Email yourself a new code to reconnect.",
   signed_out: "Your sign-in expired. Email yourself a new code to reconnect.",
-  network_unavailable: "OpenMausBot could not reach its secure connection service. Check your internet and try again.",
+  network_unavailable: "Roundtable could not reach its secure connection service. Check your internet and try again.",
   rate_limited: "Too many attempts were made. Wait a little, then try again.",
   credential_rotation_rate_limited: "This computer was reconnected too often. Wait a little, then try again.",
   installation_limit_reached: "This account has reached its computer limit. Remove an old computer and try again.",
@@ -618,3 +618,4 @@ export function createCompanionAccountService({
     restore,
   });
 }
+

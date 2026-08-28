@@ -221,7 +221,7 @@ export function createControlPlaneClient({
       });
       if (
         payload.ok !== true ||
-        payload.service !== "openmausbot-control-plane"
+        payload.service !== "Roundtable-control-plane"
       ) {
         throw new ControlPlaneError("control_plane_unavailable");
       }
@@ -387,3 +387,4 @@ export function createControlPlaneClient({
     },
   };
 }
+

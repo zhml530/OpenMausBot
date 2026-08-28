@@ -21,7 +21,7 @@ describe("companionPairingLink", () => {
     });
 
     const url = new URL(link!);
-    expect(url.protocol).toBe("openmausbot:");
+    expect(url.protocol).toBe("Roundtable:");
     expect(url.host).toBe("pair");
     expect(url.searchParams.get("address")).toBe("macbook.tail1234.ts.net:8810");
     expect(url.searchParams.get("token")).toBe(token);
@@ -47,10 +47,10 @@ describe("companionPairingLink", () => {
       port: 8810,
       code: "004209",
       token,
-      hosts: ["macbook.tail1234.ts.net", "192.168.1.42", "openmausbot-abcd1234.local"],
+      hosts: ["macbook.tail1234.ts.net", "192.168.1.42", "Roundtable-abcd1234.local"],
     });
     expect(new URL(link!).searchParams.get("hosts")).toBe(
-      "macbook.tail1234.ts.net,192.168.1.42,openmausbot-abcd1234.local",
+      "macbook.tail1234.ts.net,192.168.1.42,Roundtable-abcd1234.local",
     );
   });
 
@@ -60,22 +60,22 @@ describe("companionPairingLink", () => {
       port: 8810,
       code: "004209",
       token,
-      hosts: ["192.168.1.42", "openmausbot-abcd1234.local"],
+      hosts: ["192.168.1.42", "Roundtable-abcd1234.local"],
       endpoints: [
         { url: "http://192.168.1.42:8810", kind: "lan", priority: 200 },
         { url: "https://Device-123.Companion.Example/", kind: "hosted", priority: 0 },
-        { url: "http://openmausbot-abcd1234.local:8810", kind: "bonjour", priority: 300 },
+        { url: "http://Roundtable-abcd1234.local:8810", kind: "bonjour", priority: 300 },
       ],
     });
 
     const url = new URL(link!);
     expect(url.searchParams.get("address")).toBe("192.168.1.42:8810");
-    expect(url.searchParams.get("hosts")).toBe("192.168.1.42,openmausbot-abcd1234.local");
+    expect(url.searchParams.get("hosts")).toBe("192.168.1.42,Roundtable-abcd1234.local");
     expect(url.searchParams.get("endpoints")).toMatch(/^[A-Za-z0-9_-]+$/);
     expect(decodedEndpoints(link!)).toEqual([
       { url: "https://device-123.companion.example", kind: "hosted", priority: 0 },
       { url: "http://192.168.1.42:8810", kind: "lan", priority: 200 },
-      { url: "http://openmausbot-abcd1234.local:8810", kind: "bonjour", priority: 300 },
+      { url: "http://Roundtable-abcd1234.local:8810", kind: "bonjour", priority: 300 },
     ]);
   });
 
@@ -117,3 +117,4 @@ describe("companionPairingLink", () => {
     expect(new URL(none!).searchParams.get("hosts")).toBeNull();
   });
 });
+

@@ -29,7 +29,7 @@ function fixture() {
 function runHook(appRoot) {
   return spawnSync("/bin/sh", [hook], {
     encoding: "utf8",
-    env: { ...process.env, OPENMAUSBOT_POSTINSTALL_TEST_ROOT: appRoot },
+    env: { ...process.env, Roundtable_POSTINSTALL_TEST_ROOT: appRoot },
   });
 }
 
@@ -104,3 +104,4 @@ describe.skipIf(process.platform !== "linux")("Linux DEB upgrade hook", () => {
     expect(result.stderr).toContain("must stay under /tmp");
   });
 });
+

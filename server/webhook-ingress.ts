@@ -97,7 +97,7 @@ export function createWebhookIngressHandler(manager: WebhookManager) {
   return async (req: IncomingMessage, res: ServerResponse) => {
     const url = new URL(req.url ?? "/", "http://localhost");
     if (req.method === "GET" && url.pathname === "/health") {
-      return json(res, 200, { app: "openmausbot-webhooks", ready: true });
+      return json(res, 200, { app: "Roundtable-webhooks", ready: true });
     }
     const match = url.pathname.match(/^\/hooks\/(wh_[A-Za-z0-9_-]+)(?:\/([^/]+))?$/);
     if (!match) return json(res, 404, { error: "Unknown webhook endpoint" });
@@ -175,3 +175,4 @@ export function webhookCredential(baseUrl: string, endpointId: string, secret: s
     url: `${endpointUrl}/${encodeURIComponent(secret)}`,
   };
 }
+

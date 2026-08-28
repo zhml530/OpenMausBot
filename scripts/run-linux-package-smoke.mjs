@@ -29,11 +29,11 @@ if (appImages.length !== 1) {
 const [appImage] = appImages;
 
 const executables = [
-  path.join(root, "release", "linux-unpacked", "openmausbot"),
+  path.join(root, "release", "linux-unpacked", "Roundtable"),
   path.join(root, "release", appImage),
 ];
 if (process.env.OMB_SMOKE_INSTALLED_DEB === "1") {
-  executables.push("/opt/OpenMausBot/openmausbot");
+  executables.push("/opt/Roundtable/Roundtable");
 }
 
 for (const executable of executables) {
@@ -127,3 +127,4 @@ if (process.exitCode === undefined) for (const lane of [
   }
   await cleanupRuntime(runtimeDirectory);
 }
+

@@ -11,7 +11,7 @@ const electronDir = path.dirname(fileURLToPath(import.meta.url));
 const projectDir = path.dirname(electronDir);
 const resourcesDir = path.join(electronDir, "resources");
 
-export const speechHelperBundle = path.join(resourcesDir, "OpenMausBot Speech.app");
+export const speechHelperBundle = path.join(resourcesDir, "Roundtable Speech.app");
 export const speechHelperBinary = path.join(speechHelperBundle, "Contents", "MacOS", "speech-helper");
 
 export function buildSpeechHelper() {
@@ -64,3 +64,4 @@ export function buildSpeechHelper() {
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   buildSpeechHelper();
 }
+

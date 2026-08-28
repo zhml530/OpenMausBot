@@ -4,7 +4,7 @@ description: Understand the harness, webhook, and companion network boundaries.
 icon: Network
 ---
 
-OpenMausBot separates its network surfaces by trust level.
+Roundtable separates its network surfaces by trust level.
 
 | Surface | Default bind | Purpose |
 |---|---|---|
@@ -22,3 +22,4 @@ For webhook delivery, proxy only the dedicated webhook receiver. Never forward t
 ## Port overrides
 
 Source and advanced deployments can change documented ports with the relevant environment settings. When the default harness port is occupied, packaged builds may fall back to another local port and communicate the selected address internally.
+

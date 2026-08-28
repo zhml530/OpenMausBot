@@ -70,9 +70,9 @@ posixOnly("unattended turns keep asking", () => {
   beforeAll(async () => {
     chmodSync(FAKE_CLI, 0o755);
     home = mkdtempSync(join(tmpdir(), "omb-unattended-"));
-    mkdirSync(join(home, ".openmausbot"), { recursive: true });
+    mkdirSync(join(home, ".Roundtable"), { recursive: true });
     writeFileSync(
-      join(home, ".openmausbot", "config.json"),
+      join(home, ".Roundtable", "config.json"),
       JSON.stringify({
         instances: {
           // asks the client for permission mid-turn, which is exactly the
@@ -277,3 +277,4 @@ posixOnly("unattended turns keep asking", () => {
     90_000,
   );
 });
+

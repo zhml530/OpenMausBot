@@ -109,7 +109,7 @@ export function companionPairingLink({
     return null;
   const dialableHost = host.includes(":") && !host.startsWith("[") ? `[${host}]` : host;
 
-  const url = new URL("openmausbot://pair");
+  const url = new URL("Roundtable://pair");
   url.searchParams.set("address", `${dialableHost}:${port}`);
   // The scanner uses the high-entropy token. The code remains in the link so
   // an older mobile build can still pair during a staggered desktop rollout.
@@ -128,3 +128,4 @@ export function companionPairingLink({
   if (routes.length) url.searchParams.set("endpoints", encodeEndpoints(routes));
   return url.toString();
 }
+

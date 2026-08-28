@@ -1,6 +1,6 @@
 export type SidebarDensity = "comfortable" | "compact" | "icons";
 
-export const SIDEBAR_DENSITY_KEY = "openmausbot.sidebarDensity";
+export const SIDEBAR_DENSITY_KEY = "Roundtable.sidebarDensity";
 
 export function parseSidebarDensity(value: string | null): SidebarDensity {
   switch (value) {
@@ -34,3 +34,4 @@ export function saveSidebarDensity(
     // The in-memory React state still makes the control useful this session.
   }
 }
+

@@ -49,7 +49,7 @@ export function UpdateBanner() {
 
   const title =
     s.status === "available"
-      ? `OpenMausBot ${s.version} is available`
+      ? `Roundtable ${s.version} is available`
       : s.status === "downloading"
         ? `Downloading ${s.version ?? "update"}…`
         : s.status === "downloaded"
@@ -68,7 +68,7 @@ export function UpdateBanner() {
         : s.status === "downloaded"
           ? "Restart to finish updating."
           : installing
-            ? "OpenMausBot will reopen in a moment."
+            ? "Roundtable will reopen in a moment."
             : friendlyError(s.message);
 
   return (
@@ -191,3 +191,4 @@ export function UpdateBanner() {
     </div>
   );
 }
+

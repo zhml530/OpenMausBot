@@ -2,7 +2,7 @@
 
 The sidecar a phone talks to.
 
-OpenMausBot's harness listens on `127.0.0.1` and nothing else, which is the
+Roundtable's harness listens on `127.0.0.1` and nothing else, which is the
 right default and one it has recently gone out of its way to enforce: it now
 rejects any request whose `Host` is not loopback, defeating DNS rebinding.
 
@@ -103,12 +103,12 @@ it is switched on, so the opt-in is never implicit.
 | `OMB_WEBHOOK_PORT` | `OMB_PORT` + 1 | the harness's webhook receiver — refused, not used |
 | `OMB_COMPANION_PORT` | `8810` | where devices connect |
 | `OMB_CONTROL_PORT` | `8811` | the pairing page, loopback only |
-| `OMB_COMPANION_DIR` | `~/.openmausbot-companion` | paired devices live here |
+| `OMB_COMPANION_DIR` | `~/.Roundtable-companion` | paired devices live here |
 | `OMB_COMPANION_NAME` | your name, from the harness | what the phone calls this computer |
 
 `OMB_COMPANION_NAME` overrides a name the sidecar otherwise asks the harness
 for at startup — the profile from onboarding, as *"Ada's computer"*. It falls
-back to `OpenMausBot` when the harness is not up or has no profile. Read once
+back to `Roundtable` when the harness is not up or has no profile. Read once
 and cached: the name goes into the Bonjour record, and re-advertising under a
 new one later would show the phone two computers.
 
@@ -142,3 +142,4 @@ every bug this design can have lives in the seam between them: an SSE event
 that never terminates, a resume cursor dropped in transit, a `content-length`
 set beside a `transfer-encoding`. None of those are visible to a unit test —
 the last one was found by this suite within a minute of it existing.
+

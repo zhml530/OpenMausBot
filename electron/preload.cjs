@@ -119,7 +119,7 @@ contextBridge.exposeInMainWorld("ogb", {
   /** Open a web link in the default browser. Unlike renderer window.open,
    * this remains reliable after an asynchronous API request. */
   openExternal: (url) => ipcRenderer.invoke("desktop:open-external", url),
-  /** A reviewed BotMRR package opened through openmausbot://install. */
+  /** A reviewed BotMRR package opened through Roundtable://install. */
   onPackageInstall: (cb) => {
     packageInstallListeners.add(cb);
     if (pendingPackageInstallUrl) cb(pendingPackageInstallUrl);
@@ -165,3 +165,4 @@ contextBridge.exposeInMainWorld("ogb", {
     },
   },
 });
+

@@ -219,7 +219,7 @@ export async function boxStatus(cfg: AppConfig, botId: string) {
  */
 export async function provisionBox(cfg: AppConfig, botId: string, botName: string) {
   if (!boxConfigured(cfg)) {
-    throw new Error('box provider not enabled — add {"box":{"token":"…"}} to ~/.openmausbot/config.json');
+    throw new Error('box provider not enabled — add {"box":{"token":"…"}} to ~/.Roundtable/config.json');
   }
   const vmName = await boxNameFor(botId);
   let box = await findBox(cfg, botId);
@@ -365,3 +365,4 @@ export async function screenshotBox(cfg: AppConfig, botId: string, knownBoxId?: 
   if (!data) throw new Error("could not read the frame back from the box");
   return { png: data, format: "jpeg" };
 }
+

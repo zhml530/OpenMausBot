@@ -72,7 +72,7 @@ await build({
   plugins: [yamlEsmPlugin],
 });
 
-// pi-mcp-extension.ts is NOT an OpenMausBot entry point: it is loaded by the
+// pi-mcp-extension.ts is NOT an Roundtable entry point: it is loaded by the
 // external `pi` process (pi's own jiti), which resolves its
 // @earendil-works/pi-coding-agent and typebox imports from pi's install. Ship
 // it verbatim as .ts so the packaged app has it too — never bundle it, or
@@ -81,3 +81,4 @@ const piMcpExtSrc = join(server, "drivers", "pi-mcp-extension.ts");
 const piMcpExtDest = join(root, "dist-server", "drivers", "pi-mcp-extension.ts");
 mkdirSync(dirname(piMcpExtDest), { recursive: true });
 copyFileSync(piMcpExtSrc, piMcpExtDest);
+

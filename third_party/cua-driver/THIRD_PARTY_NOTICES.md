@@ -1,6 +1,6 @@
 # Cua Driver 0.19.3 third-party notices
 
-OpenMausBot redistributes two executables from the official Cua Driver 0.19.3 Linux x64 release: `cua-driver` and `cua-cursor-theme`.
+Roundtable redistributes two executables from the official Cua Driver 0.19.3 Linux x64 release: `cua-driver` and `cua-cursor-theme`.
 
 - Upstream source commit: [`a1672e7b11951275ecfba3384264d4530185d0db`](https://github.com/trycua/cua/commit/a1672e7b11951275ecfba3384264d4530185d0db)
 - Upstream `Cargo.lock` SHA-256: `c1a8df7f4bedd554f6fc90c852c3625c91a89b28d9f2c642d966279e9e372362`
@@ -22,7 +22,7 @@ The shipped build graph contains exactly the following MPL-2.0 components. Their
 - [uniffi_meta@0.31.0 source](https://crates.io/api/v1/crates/uniffi_meta/0.31.0/download) — crate SHA-256 `9df6d413db2827c68588f8149d30d49b71d540d46539e435b23a7f7dbd4d4f86`;
 - [uniffi_pipeline@0.31.0 source](https://crates.io/api/v1/crates/uniffi_pipeline/0.31.0/download) — crate SHA-256 `a806dddc8208f22efd7e95a5cdf88ed43d0f3271e8f63b47e757a8bbdb43b63a`;
 
-The complete MPL-2.0 text and package copyright notices appear in `THIRD_PARTY_LICENSES.html`. These files remain under their original licenses; OpenMausBot's and Cua's MIT licenses do not replace them.
+The complete MPL-2.0 text and package copyright notices appear in `THIRD_PARTY_LICENSES.html`. These files remain under their original licenses; Roundtable's and Cua's MIT licenses do not replace them.
 
 ## Scope and method
 
@@ -381,3 +381,4 @@ The registry inventory is the union of two root-scoped `cargo-about 0.8.4` graph
 | Component | Version | License | Embedded file SHA-256 | Source |
 |---|---:|---|---|---|
 | Inter | 4.001 | OFL-1.1 | `29160a80ff49ddcab2c97711247e08b1fab27a484a329ce8b813d820dc559031` | [Inter commit 66647c0bb](https://github.com/rsms/inter/commit/66647c0bbbe41a850d79d9c76fb13add3378940f) |
+

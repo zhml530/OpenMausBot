@@ -1,4 +1,4 @@
-# Voice in OpenMausBot
+# Voice in Roundtable
 
 Decision doc, 2026-08-14. How bots speak, and how you hold a conversation with
 one.
@@ -111,3 +111,4 @@ delegate real work to specialists over `ask_bot` — no new machinery required.
   microphone session or a stale `currentCall` behind.
 - Synthesis requests are abortable from the renderer and individual utterances
   are capped server-side to bound accidental hosted-voice spend.
+

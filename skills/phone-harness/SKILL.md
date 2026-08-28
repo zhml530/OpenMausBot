@@ -1,6 +1,6 @@
 ---
 name: phone-harness
-description: "Control, inspect, test, or automate a physical Android phone connected to OpenMausBot over authorized USB debugging. Use for explicit Android, USB phone, ADB, mobile-app, tapping, typing, swiping, scrolling, screenshot, or phone-screen requests."
+description: "Control, inspect, test, or automate a physical Android phone connected to Roundtable over authorized USB debugging. Use for explicit Android, USB phone, ADB, mobile-app, tapping, typing, swiping, scrolling, screenshot, or phone-screen requests."
 ---
 
 # Phone Harness
@@ -24,3 +24,4 @@ security prompt unless the user has explicitly authorized that exact action.
 
 Never enter passwords, payment details, government identifiers, or one-time
 codes. Ask the user to complete protected-input steps directly on the phone.
+

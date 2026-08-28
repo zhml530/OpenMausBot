@@ -39,7 +39,7 @@ beforeAll(async () => {
     if (req.method === "GET" && req.url === "/api/repo/status") {
       res.statusCode = repoStatus;
       return res.end(
-        JSON.stringify(repoStatus === 200 ? { repo: "OpenMausBot", branch: "main", commit: "abc123" } : { error: "offline" }),
+        JSON.stringify(repoStatus === 200 ? { repo: "Roundtable", branch: "main", commit: "abc123" } : { error: "offline" }),
       );
     }
     if (req.method === "GET" && req.url === "/api/opencode/models") {
@@ -135,3 +135,4 @@ describe("dweb-proxy MCP surface", () => {
     expect(run.result.content[0].text).toContain("model unavailable");
   });
 });
+

@@ -63,7 +63,7 @@ struct SettingsView: View {
             Section {
                 Button("Unpair this phone", role: .destructive) { confirmingSignOut = true }
             } footer: {
-                Text("Removes the pairing from this phone only. To stop it reaching the computer at all, remove the device in OpenMausBot → Settings → Companion.")
+                Text("Removes the pairing from this phone only. To stop it reaching the computer at all, remove the device in Roundtable → Settings → Companion.")
             }
 
             Section("Not here") {
@@ -110,3 +110,4 @@ struct SettingsView: View {
         }
     }
 }
+

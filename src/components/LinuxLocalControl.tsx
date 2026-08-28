@@ -13,7 +13,7 @@ import { cn } from "@/lib/cn";
 import { useDesktopCapabilities } from "./DesktopCapabilities";
 
 const LINUX_GUIDE_URL =
-  "https://github.com/milind-soni/OpenMausBot/blob/main/docs/linux-desktop.md#enable-local-control";
+  "https://github.com/milind-soni/Roundtable/blob/main/docs/linux-desktop.md#enable-local-control";
 
 export function LinuxLocalControl() {
   const { capabilities } = useDesktopCapabilities();
@@ -170,3 +170,4 @@ export function LinuxLocalControl() {
     </section>
   );
 }
+

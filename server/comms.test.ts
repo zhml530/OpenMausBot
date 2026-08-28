@@ -96,9 +96,9 @@ describe("comms e2e (fake ACP fleet)", () => {
   beforeAll(async () => {
     chmodSync(FAKE_CLI, 0o755);
     home = mkdtempSync(join(tmpdir(), "omb-comms-test-"));
-    mkdirSync(join(home, ".openmausbot"), { recursive: true });
+    mkdirSync(join(home, ".Roundtable"), { recursive: true });
     writeFileSync(
-      join(home, ".openmausbot", "config.json"),
+      join(home, ".Roundtable", "config.json"),
       JSON.stringify({
         instances: {
           // the ask-peer fleet: both bots run "ask-peer" so A can ask B
@@ -869,3 +869,4 @@ describe("comms e2e (fake ACP fleet)", () => {
     expect(reply.text).not.toContain("peer error");
   }, 45_000);
 });
+

@@ -53,7 +53,7 @@ describe("desktop notifications", () => {
     const { notices } = installNotification("granted");
     showNotification(frame, vi.fn());
     expect(notices).toHaveLength(1);
-    expect(notices[0]).toMatchObject({ title: frame.title, options: { body: frame.body, tag: `openmausbot:${frame.botId}` } });
+    expect(notices[0]).toMatchObject({ title: frame.title, options: { body: frame.body, tag: `Roundtable:${frame.botId}` } });
   });
 
   it("opens the exact detached task carried by the notification", () => {
@@ -82,10 +82,10 @@ describe("desktop notifications", () => {
 
     // one bot across two threads shares a tag, so the platform replaces
     // rather than stacks; another bot gets its own key
-    expect(notices[0]?.options?.tag).toBe(`openmausbot:${frame.botId}`);
-    expect(notices[1]?.options?.tag).toBe(`openmausbot:${frame.botId}`);
+    expect(notices[0]?.options?.tag).toBe(`Roundtable:${frame.botId}`);
+    expect(notices[1]?.options?.tag).toBe(`Roundtable:${frame.botId}`);
     showNotification({ ...frame, botId: "bot-2" }, vi.fn());
-    expect(notices[2]?.options?.tag).toBe(`openmausbot:bot-2`);
+    expect(notices[2]?.options?.tag).toBe(`Roundtable:bot-2`);
   });
 
   it("carries the bot's avatar when its profile has one", () => {
@@ -103,8 +103,9 @@ describe("desktop notifications", () => {
 describe("buildNotificationOptions", () => {
   it("keys coalescing on botId and omits a missing avatar", () => {
     expect(buildNotificationOptions({ id: "bot-9" })).toEqual({
-      tag: "openmausbot:bot-9",
+      tag: "Roundtable:bot-9",
       icon: undefined,
     });
   });
 });
+

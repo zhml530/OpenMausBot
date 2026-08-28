@@ -7,9 +7,10 @@ const generatedPaths = [
   "dist-server",
   "release",
   "electron/resources/speech-helper",
-  "electron/resources/OpenMausBot Speech.app",
+  "electron/resources/Roundtable Speech.app",
 ];
 
 await Promise.all(
   generatedPaths.map((path) => rm(path, { recursive: true, force: true })),
 );
+

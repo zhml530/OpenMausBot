@@ -12,7 +12,7 @@ const validPackage: any = {
     tagline: "Turn a question into a sourced brief.",
     summary: "A small research team.",
     category: "Research",
-    author: { name: "OpenMausBot" },
+    author: { name: "Roundtable" },
     license: "MIT",
     outcomes: ["Produce a sourced brief."],
     setupMinutes: 3,
@@ -90,3 +90,4 @@ describe("bot packages", () => {
     })).toThrow("unknown playbook");
   });
 });
+

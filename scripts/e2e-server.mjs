@@ -1,4 +1,4 @@
-// End-to-end check of a running OpenMausBot harness server — the exact
+// End-to-end check of a running Roundtable harness server — the exact
 // flows the app drives, over the same HTTP API. No deps; Node 22+.
 //
 //   node scripts/e2e-server.mjs [--port 8799] [--with-box]
@@ -287,3 +287,4 @@ main().catch((e) => {
   console.error(`\nFAIL: ${e.message}`);
   process.exit(1);
 });
+

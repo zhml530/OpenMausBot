@@ -46,9 +46,9 @@ posixOnly("mid-turn steering e2e", () => {
     chmodSync(FAKE_CLAUDE, 0o755);
     chmodSync(FAKE_ACP, 0o755);
     home = mkdtempSync(join(tmpdir(), "omb-steer-"));
-    mkdirSync(join(home, ".openmausbot"), { recursive: true });
+    mkdirSync(join(home, ".Roundtable"), { recursive: true });
     writeFileSync(
-      join(home, ".openmausbot", "config.json"),
+      join(home, ".Roundtable", "config.json"),
       JSON.stringify({
         instances: {
           claude: { driver: "claudeAgent", environment: { FAKE_CLAUDE_MODE: "slow" }, config: { cli: FAKE_CLAUDE, permissionMode: "bypassPermissions" } },
@@ -139,3 +139,4 @@ posixOnly("mid-turn steering e2e", () => {
     await waitFor(async () => (await getBot(created.id)).busy === false, "the queued turn to settle");
   }, 30_000);
 });
+

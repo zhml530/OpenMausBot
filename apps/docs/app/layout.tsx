@@ -6,14 +6,14 @@ import './global.css';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  metadataBase: new URL('https://docs.openmausbot.com'),
+  metadataBase: new URL('https://docs.Roundtable.com'),
   title: {
-    default: 'OpenMausBot Docs',
-    template: '%s · OpenMausBot Docs',
+    default: 'Roundtable Docs',
+    template: '%s · Roundtable Docs',
   },
   description: 'Install, configure, and extend your local-first team of AI agents.',
   openGraph: {
-    title: 'OpenMausBot Docs',
+    title: 'Roundtable Docs',
     description: 'Your own team of AI agents, in a chat app.',
     type: 'website',
   },
@@ -32,3 +32,4 @@ export default function Layout({ children }: LayoutProps<'/'>) {
     </html>
   );
 }
+

@@ -11,7 +11,7 @@ export function createAuth(
   requestId: string,
 ) {
   return betterAuth({
-    appName: "OpenMausBot",
+    appName: "Roundtable",
     baseURL: config.authBaseURL,
     basePath: "/api/auth",
     secret: env.BETTER_AUTH_SECRET,
@@ -75,3 +75,4 @@ export async function accountSession(request: Request, auth: ControlPlaneAuth) {
     headers: new Headers({ authorization: `Bearer ${match[1]}` }),
   });
 }
+

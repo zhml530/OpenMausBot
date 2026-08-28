@@ -22,9 +22,9 @@ const image = (path: string): ImageAttachment => ({
 
 describe("composeMessage with images", () => {
   it("emits an attached-image tag carrying the server path", () => {
-    const prompt = composeMessage("what is this?", [image("/home/u/.openmausbot/attachments/abc.png")]);
+    const prompt = composeMessage("what is this?", [image("/home/u/.Roundtable/attachments/abc.png")]);
     expect(prompt).toBe(
-      'what is this?\n\n<attached-image path="/home/u/.openmausbot/attachments/abc.png" />',
+      'what is this?\n\n<attached-image path="/home/u/.Roundtable/attachments/abc.png" />',
     );
   });
 
@@ -86,3 +86,4 @@ describe("isImageFile", () => {
     expect(isImageFile({ type: "text/plain", size: 10 })).toBe(false);
   });
 });
+

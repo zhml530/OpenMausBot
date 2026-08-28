@@ -124,10 +124,10 @@ export function createBotPackageExport(input: {
     id,
     release: "1.0.0",
     name: input.name,
-    tagline: `A portable OpenMausBot setup with ${bots.length} ${bots.length === 1 ? "bot" : "bots"}.`,
-    summary: "Exported from OpenMausBot. Review the roles, rooms, playbooks, connector requirements, and paused routines before sharing or publishing.",
+    tagline: `A portable Roundtable setup with ${bots.length} ${bots.length === 1 ? "bot" : "bots"}.`,
+    summary: "Exported from Roundtable. Review the roles, rooms, playbooks, connector requirements, and paused routines before sharing or publishing.",
     category: "Community",
-    author: { name: input.authorName?.trim() || "OpenMausBot user" },
+    author: { name: input.authorName?.trim() || "Roundtable user" },
     license: "Unspecified",
     outcomes: ["Recreate this bot setup without copying private runtime state."],
     setupMinutes: Math.min(240, Math.max(2, bots.length + requirements.size * 2)),
@@ -145,3 +145,4 @@ export function createBotPackageExport(input: {
     package: definition,
   });
 }
+

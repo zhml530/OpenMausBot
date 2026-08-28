@@ -7,7 +7,7 @@ export function packageUrlFromDeepLink(rawValue) {
   } catch {
     return null;
   }
-  if (link.protocol !== "openmausbot:" || link.hostname !== "install") return null;
+  if (link.protocol !== "Roundtable:" || link.hostname !== "install") return null;
   const rawPackage = link.searchParams.get("url");
   if (!rawPackage) return null;
   let packageUrl;
@@ -34,3 +34,4 @@ export function packageUrlFromCommandLine(argv) {
   }
   return null;
 }
+

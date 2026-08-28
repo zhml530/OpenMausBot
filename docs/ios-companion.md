@@ -1,6 +1,6 @@
 # iOS companion architecture
 
-The iOS app is a thin, native client for the OpenMausBot instance running on
+The iOS app is a thin, native client for the Roundtable instance running on
 your Mac. The Mac remains the only machine that owns agent processes,
 credentials, SQLite data, transcripts, and computers. The phone discovers or
 is told how to reach the Mac, pairs once, and then uses the same HTTP and SSE
@@ -27,7 +27,7 @@ voice, and App Store release automation are not part of this version. The
 optional hosted transport connects to the user's own computer; it is not a
 cloud transcript store and cannot wake a terminated iOS app.
 
-The Mac must be running OpenMausBot and must not be asleep. Companion Settings
+The Mac must be running Roundtable and must not be asleep. Companion Settings
 offers an off-by-default **Keep this computer awake** switch that prevents
 system sleep while Companion is on; the display may still turn off. A sleeping
 or powered-off computer cannot receive phone requests or run its local
@@ -51,7 +51,7 @@ routines, including through the optional hosted transport.
  response/SSE scrubbing, authenticated endpoint refresh)
             │ loopback only
             ▼
- OpenMausBot harness :8799
+ Roundtable harness :8799
    HTTP API + event stream
    agent processes and approvals
             │
@@ -87,7 +87,7 @@ harness API:
   If an API payload changes, regenerate the fixtures with
   `node scripts/capture-companion-fixtures.mjs` and review the diff.
 
-The sidecar keeps its device registry in `~/.openmausbot/devices.json`. That is
+The sidecar keeps its device registry in `~/.Roundtable/devices.json`. That is
 security state owned by the network boundary, not transcript data, so it does
 not belong in the message database.
 
@@ -95,7 +95,7 @@ not belong in the message database.
 
 ### Same Wi-Fi
 
-The sidecar advertises `_openmausbot._tcp` over Bonjour. The app browses with
+The sidecar advertises `_Roundtable._tcp` over Bonjour. The app browses with
 `NWBrowser`, resolves the chosen service, and connects directly. If multicast
 is unavailable, the desktop shows the LAN address for manual entry.
 
@@ -122,7 +122,7 @@ and `ios/project.yml` narrowly allows insecure HTTP for `ts.net` subdomains.
 Bonjour does not cross the tailnet, so remote pairing uses manual address
 entry.
 
-Tailscale is optional. The direct path does not use an OpenMausBot-operated
+Tailscale is optional. The direct path does not use an Roundtable-operated
 relay or create a cloud copy of local transcript data.
 
 ### Optional hosted HTTPS
@@ -136,7 +136,7 @@ after the route has passed an end-to-end health check. LAN, Bonjour, manual
 addresses, and Tailscale continue to work without signing in.
 
 Cloudflare terminates and proxies the encrypted connection to the connector.
-The OpenMausBot control plane stores account and installation metadata plus
+The Roundtable control plane stores account and installation metadata plus
 opaque tunnel/DNS identifiers in D1, but not bots, transcripts, approvals,
 screen frames, pairing tokens, or connector tokens. See `docs/ios-privacy.md`
 for data and deletion details.
@@ -174,7 +174,7 @@ bounded list of connection origins.
 
 This mirrors the direct-pairing security shape used by T3 Code: a high-entropy
 bootstrap credential, explicit confirmation of the scanned target, and a
-one-time exchange for a securely stored long-lived credential. An OpenMausBot
+one-time exchange for a securely stored long-lived credential. An Roundtable
 account is not required for LAN or Tailscale. The optional hosted route requires
 the desktop owner to authenticate before provisioning, while the phone still
 uses the same per-computer pairing credential.
@@ -292,3 +292,4 @@ distribution scope:
    simulator build already run in the repository CI.
 5. **Optional expansion:** voice/call mode or Local VM/host-computer
    interaction. Each requires its own threat-model review.
+

@@ -17,7 +17,7 @@ describe("MinimaxDriver", () => {
   let home: string;
 
   beforeEach(() => {
-    home = mkdtempSync(join(tmpdir(), "openmausbot-minimax-"));
+    home = mkdtempSync(join(tmpdir(), "Roundtable-minimax-"));
     process.env.HOME = home;
     process.env.USERPROFILE = home;
     delete process.env.MINIMAX_API_KEY;
@@ -148,3 +148,4 @@ describe("MinimaxDriver", () => {
     await instance.dispose();
   });
 });
+
