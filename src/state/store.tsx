@@ -23,6 +23,7 @@ import { showNotification, type NotificationTarget } from "@/lib/notify";
 import { speaker } from "@/lib/tts";
 import { createBotPatchQueue, type BotUpdatePatch } from "./bot-patch-queue";
 import { skillRecorderEnabled } from "@/lib/feature-flags";
+import { orchestrationFetch, subscribeOrchestrationEvents } from "@/lib/orchestration";
 
 export type { MausColor } from "@/lib/mascot";
 
@@ -341,7 +342,6 @@ export type AppSettingsSection =
   | "general"
   | "connections"
   | "engines"
-  | "companion"
   | "computer"
   | "usage";
 
@@ -1090,7 +1090,7 @@ export const initialState: AppState = {
 
 // ── API client ─────────────────────────────────────────────────────────
 export async function api(path: string, init?: RequestInit): Promise<any> {
-  const res = await fetch(path, {
+  const res = await orchestrationFetch(path, {
     headers: { "content-type": "application/json" },
     ...init,
   });
@@ -1211,7 +1211,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     };
     // fire-and-forget card persistence; the route is optional server-side
     const persistCard = (botId: string, messageId: string, patch: Partial<OptionCardData>) => {
-      fetch(`/api/bots/${botId}/cards/${messageId}`, {
+      orchestrationFetch(`/api/bots/${botId}/cards/${messageId}`, {
         method: "PATCH",
         headers: { "content-type": "application/json" },
         body: JSON.stringify(patch),
@@ -1545,17 +1545,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         for (const frame of pendingFrames.splice(0)) handleFrame(frame);
       });
     };
-    // If SSE is unavailable, the app should still show its saved state. A
-    // later first hello hydrates again because it cannot prove there was no
-    // gap before that connection opened.
-    const hydrationFallback = setTimeout(hydrate, 1_000);
-
-    const es = new EventSource("/api/events");
-    // The hydrate decision belongs to the hello frame, not to onopen: the
-    // server replays what we missed when it can, and re-downloading every
-    // transcript on a reconnect it already covered is pure waste.
-    es.onopen = () => rawDispatch({ type: "connected", value: true });
-    es.onerror = () => rawDispatch({ type: "connected", value: false });
+    // Electron IPC is ordered and tied to the utility-process lifetime. A
+    // single initial hydrate establishes the snapshot boundary; subsequent
+    // frames arrive on the same reliable channel.
+    const hydrationFallback = setTimeout(hydrate, 0);
+    rawDispatch({ type: "connected", value: true });
     handleFrame = (frame) => {
       switch (frame.kind) {
         case "message": {
@@ -1599,7 +1593,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           // reading the selected chat clears its badge immediately
           if (bot.unread && bot.id === stateRef.current.selectedId) {
             bot.unread = false;
-            fetch(`/api/bots/${bot.id}`, {
+            orchestrationFetch(`/api/bots/${bot.id}`, {
               method: "PATCH",
               headers: { "content-type": "application/json" },
               body: JSON.stringify({ unread: false }),
@@ -1616,7 +1610,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           // reading the selected room clears its badge immediately
           if (group.unread && group.id === stateRef.current.selectedId) {
             group.unread = false;
-            fetch(`/api/groups/${group.id}`, {
+            orchestrationFetch(`/api/groups/${group.id}`, {
               method: "PATCH",
               headers: { "content-type": "application/json" },
               body: JSON.stringify({ unread: false }),
@@ -1715,27 +1709,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           break;
       }
     };
-    es.onmessage = (raw) => {
-      let frame: any;
-      try {
-        frame = JSON.parse(raw.data);
-      } catch {
-        return;
-      }
-      // `hello` is the snapshot boundary. A false `resumed` means the server
-      // could not fill the gap, so queue subsequent frames behind a hydrate.
-      if (frame.kind === "hello") {
-        clearTimeout(hydrationFallback);
-        if (!frame.resumed) hydrate();
-        return;
-      }
+    const unsubscribe = subscribeOrchestrationEvents((frame) => {
       if (hydrated) handleFrame(frame);
       else pendingFrames.push(frame);
-    };
+    });
     return () => {
       alive = false;
       clearTimeout(hydrationFallback);
-      es.close();
+      unsubscribe();
     };
   }, []);
 

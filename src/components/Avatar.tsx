@@ -13,6 +13,7 @@ import {
   useState,
   type PointerEvent as ReactPointerEvent,
 } from "react";
+import { orchestrationResourceUrl } from "@/lib/orchestration";
 import { MAUS_COLORS, type MausColor, type MausMotion, type MausState } from "@/lib/mascot";
 import {
   CursorAvatar,
@@ -259,7 +260,7 @@ export function BotAvatar({ bot, size = 44, label, ...mascotProps }: BotAvatarPr
         : "0";
   return (
     <img
-      src={profile.avatarUrl}
+      src={orchestrationResourceUrl(profile.avatarUrl)}
       alt={label ?? (bot.name ? `${bot.name} avatar` : "Bot avatar")}
       width={size}
       height={size}

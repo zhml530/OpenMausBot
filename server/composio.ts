@@ -107,7 +107,8 @@ export interface ComposioMcpIntegration {
 }
 
 interface IntegrationContext {
-  harnessUrl: string;
+  harnessPipe?: string;
+  harnessUrl?: string;
   commsToken: string;
   botId: string;
   threadId: string;
@@ -344,9 +345,13 @@ export async function mcpIntegration(
       // The provider-facing bridge receives only this boot's loopback token.
       // Project/broker credentials stay in the harness process, so a coding
       // agent that prints its environment cannot export a durable secret.
-      OMB_CONNECTOR_UPSTREAM_URL: `${context.harnessUrl}/api/internal/connectors/mcp`,
+      ...(context.harnessPipe
+        ? { OMB_CONNECTOR_UPSTREAM_PATH: "/api/internal/connectors/mcp" }
+        : { OMB_CONNECTOR_UPSTREAM_URL: `${context.harnessUrl}/api/internal/connectors/mcp` }),
       OMB_CONNECTOR_UPSTREAM_HEADERS: JSON.stringify({ authorization: `Bearer ${context.commsToken}` }),
-      OMB_HARNESS_URL: context.harnessUrl,
+      ...(context.harnessPipe
+        ? { OMB_HARNESS_PIPE: context.harnessPipe }
+        : { OMB_HARNESS_URL: context.harnessUrl ?? "" }),
       OMB_COMMS_TOKEN: context.commsToken,
       OMB_BOT_ID: context.botId,
       OMB_THREAD_ID: context.threadId,

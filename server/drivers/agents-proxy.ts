@@ -22,10 +22,12 @@
 //   OMB_COMMS_TOKEN  shared secret for the localhost-only internal endpoints
 //   OMB_TURN_DEPTH   this turn's comms depth (the harness refuses recursion)
 import readline from "node:readline";
+import { localRpcJson } from "../local-rpc.ts";
 
 import { CREDENTIAL_TARGETS, isCredentialTargetId } from "../../shared/credential-request.ts";
 
-const HARNESS = process.env.OMB_HARNESS_URL ?? "http://127.0.0.1:8799";
+const HARNESS_PIPE = process.env.OMB_HARNESS_PIPE ?? "";
+const HARNESS_URL = process.env.OMB_HARNESS_URL ?? "";
 const BOT_ID = process.env.OMB_BOT_ID ?? "";
 const THREAD_ID = process.env.OMB_THREAD_ID ?? "";
 const TOKEN = process.env.OMB_COMMS_TOKEN ?? "";
@@ -111,12 +113,20 @@ const textResult = (id: unknown, text: string, isError = false) =>
   ok(id, { content: [{ type: "text", text }], isError });
 
 async function api(path: string, init?: RequestInit): Promise<Json> {
-  const res = await fetch(HARNESS + path, {
-    ...init,
-    headers: { "content-type": "application/json", authorization: `Bearer ${TOKEN}`, ...init?.headers },
-  });
-  const body = (await res.json().catch(() => ({}))) as Json;
-  if (!res.ok) throw new Error(String(body.error ?? `HTTP ${res.status}`));
+  const headers = {
+    "content-type": "application/json",
+    authorization: `Bearer ${TOKEN}`,
+    ...Object.fromEntries(new Headers(init?.headers).entries()),
+  };
+  if (HARNESS_PIPE) {
+    return await localRpcJson(HARNESS_PIPE, {
+      path, method: init?.method, headers, body: typeof init?.body === "string" ? init.body : undefined,
+    }) as Json;
+  }
+  if (!HARNESS_URL) throw new Error("the Roundtable orchestration channel is unavailable");
+  const response = await fetch(HARNESS_URL + path, { ...init, headers });
+  const body = await response.json().catch(() => ({})) as Json;
+  if (!response.ok) throw new Error(String(body.error ?? `HTTP ${response.status}`));
   return body;
 }
 

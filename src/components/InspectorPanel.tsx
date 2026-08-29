@@ -13,6 +13,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Bug, ChevronDown, ChevronRight, RefreshCw, X } from "lucide-react";
 import { useStore, type Bot } from "@/state/store";
 import { cn } from "@/lib/cn";
+import { orchestrationFetch, subscribeOrchestrationEvents } from "@/lib/orchestration";
 import { formatTime, toRows, type InspectorEntry, type InspectorPage, type InspectorRow } from "@/lib/inspector";
 import type { RuntimeEvent } from "../../server/contracts.ts";
 
@@ -34,7 +35,7 @@ export function InspectorPanel({ bot }: { bot: Bot }) {
     const controller = new AbortController();
     loadAbort.current = controller;
     try {
-      const res = await fetch(`/api/threads/${threadId}/events?limit=400`, { signal: controller.signal });
+      const res = await orchestrationFetch(`/api/threads/${threadId}/events?limit=400`, { signal: controller.signal });
       if (!res.ok) throw new Error(`${res.status}`);
       const next = (await res.json()) as InspectorPage;
       if (controller.signal.aborted) return;
@@ -57,20 +58,11 @@ export function InspectorPanel({ bot }: { bot: Bot }) {
     return () => loadAbort.current?.abort();
   }, [load]);
 
-  // live: append this thread's runtime events as they stream, and re-read
-  // the disk when a turn settles so the native tee (not on the SSE) catches
-  // up. Own EventSource on purpose: the store folds runtime events into
-  // chat state and does not re-emit them.
+  // live: append this thread's runtime events from the desktop IPC stream,
+  // and re-read the disk when a turn settles so the native tee catches up.
   useEffect(() => {
-    const es = new EventSource("/api/events?screens=off");
     let settle: ReturnType<typeof setTimeout> | null = null;
-    es.onmessage = (raw) => {
-      let frame: { kind?: string; event?: RuntimeEvent };
-      try {
-        frame = JSON.parse(raw.data);
-      } catch {
-        return;
-      }
+    const unsubscribe = subscribeOrchestrationEvents((frame: { kind?: string; event?: RuntimeEvent }) => {
       if (frame.kind !== "runtime" || !frame.event || frame.event.threadId !== threadId) return;
       const event = frame.event;
       setPage((prev) => {
@@ -82,9 +74,9 @@ export function InspectorPanel({ bot }: { bot: Bot }) {
         if (settle) clearTimeout(settle);
         settle = setTimeout(() => void load(), 400);
       }
-    };
+    });
     return () => {
-      es.close();
+      unsubscribe();
       if (settle) clearTimeout(settle);
     };
   }, [threadId, load]);

@@ -8,15 +8,17 @@
 // stdout is the MCP transport. Never log there.
 import readline from "node:readline";
 import { randomUUID } from "node:crypto";
+import { localRpcRequest, localRpcJson } from "./local-rpc.ts";
 
 type Json = Record<string, unknown>;
 
-const UPSTREAM = process.env.OMB_CONNECTOR_UPSTREAM_URL ?? "";
-const HARNESS = process.env.OMB_HARNESS_URL ?? "http://127.0.0.1:8799";
+const UPSTREAM_PATH = process.env.OMB_CONNECTOR_UPSTREAM_PATH ?? "";
+const HARNESS_PIPE = process.env.OMB_HARNESS_PIPE ?? "";
+const UPSTREAM_URL = process.env.OMB_CONNECTOR_UPSTREAM_URL ?? "";
+const HARNESS_URL = process.env.OMB_HARNESS_URL ?? "";
 const BOT_ID = process.env.OMB_BOT_ID ?? "";
 const THREAD_ID = process.env.OMB_THREAD_ID ?? "";
 const TOKEN = process.env.OMB_COMMS_TOKEN ?? "";
-const MAX_RESPONSE_BYTES = 20 * 1024 * 1024;
 
 function parsedHeaders(): Record<string, string> {
   try {
@@ -36,27 +38,6 @@ const send = (message: Json) => process.stdout.write(`${JSON.stringify(message)}
 
 function textResult(id: unknown, text: string, isError = false): Json {
   return { jsonrpc: "2.0", id, result: { content: [{ type: "text", text }], ...(isError ? { isError: true } : {}) } };
-}
-
-async function readBounded(response: Response): Promise<string> {
-  const declared = Number(response.headers.get("content-length") ?? "0");
-  if (declared > MAX_RESPONSE_BYTES) throw new Error("connector response exceeded 20 MB");
-  if (!response.body) return "";
-  const reader = response.body.getReader();
-  const decoder = new TextDecoder();
-  let size = 0;
-  let text = "";
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    size += value.byteLength;
-    if (size > MAX_RESPONSE_BYTES) {
-      await reader.cancel();
-      throw new Error("connector response exceeded 20 MB");
-    }
-    text += decoder.decode(value, { stream: true });
-  }
-  return text + decoder.decode();
 }
 
 function parseUpstream(text: string, id: unknown): Json | null {
@@ -79,22 +60,29 @@ function parseUpstream(text: string, id: unknown): Json | null {
 }
 
 async function relay(message: Json): Promise<Json | null> {
-  if (!UPSTREAM) throw new Error("connected apps are unavailable");
-  const response = await fetch(UPSTREAM, {
-    method: "POST",
-    headers: {
+  const headers = {
       "content-type": "application/json",
       accept: "application/json, text/event-stream",
       ...upstreamHeaders,
       ...(upstreamSessionId ? { "mcp-session-id": upstreamSessionId } : {}),
-    },
-    body: JSON.stringify(message),
-    signal: AbortSignal.timeout(10 * 60_000),
+  };
+  if (UPSTREAM_PATH && HARNESS_PIPE) {
+    const response = await localRpcRequest(HARNESS_PIPE, {
+      path: UPSTREAM_PATH, method: "POST", headers, body: JSON.stringify(message),
+    });
+    const nextSession = response.headers["mcp-session-id"];
+    if (nextSession) upstreamSessionId = nextSession;
+    if (response.status < 200 || response.status >= 300) throw new Error(`connector service returned ${response.status}`);
+    return parseUpstream(new TextDecoder().decode(response.body), message.id);
+  }
+  if (!UPSTREAM_URL) throw new Error("connected apps are unavailable");
+  const response = await fetch(UPSTREAM_URL, {
+    method: "POST", headers, body: JSON.stringify(message), signal: AbortSignal.timeout(10 * 60_000),
   });
   const nextSession = response.headers.get("mcp-session-id");
   if (nextSession) upstreamSessionId = nextSession;
   if (!response.ok) throw new Error(`connector service returned HTTP ${response.status}`);
-  return parseUpstream(await readBounded(response), message.id);
+  return parseUpstream(await response.text(), message.id);
 }
 
 function connectorAdds(args: unknown): string[] {
@@ -112,16 +100,16 @@ function connectorAdds(args: unknown): string[] {
 }
 
 async function showConnectorCards(slugs: string[]): Promise<void> {
-  const response = await fetch(`${HARNESS}/api/internal/connectors/request`, {
-    method: "POST",
-    headers: { "content-type": "application/json", authorization: `Bearer ${TOKEN}` },
-    body: JSON.stringify({ botId: BOT_ID, threadId: THREAD_ID, slugs, resumeKey: randomUUID() }),
-    signal: AbortSignal.timeout(30_000),
-  });
-  if (!response.ok) {
-    const body = (await response.json().catch(() => ({}))) as { error?: unknown };
-    throw new Error(String(body.error ?? `could not show connection card (HTTP ${response.status})`));
+  const path = "/api/internal/connectors/request";
+  const headers = { "content-type": "application/json", authorization: `Bearer ${TOKEN}` };
+  const body = JSON.stringify({ botId: BOT_ID, threadId: THREAD_ID, slugs, resumeKey: randomUUID() });
+  if (HARNESS_PIPE) {
+    await localRpcJson(HARNESS_PIPE, { path, method: "POST", headers, body });
+    return;
   }
+  if (!HARNESS_URL) throw new Error("the Roundtable orchestration channel is unavailable");
+  const response = await fetch(HARNESS_URL + path, { method: "POST", headers, body });
+  if (!response.ok) throw new Error(`could not show connection card (HTTP ${response.status})`);
 }
 
 async function handle(message: Json): Promise<void> {

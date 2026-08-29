@@ -132,7 +132,7 @@ export interface BridgeOptions {
   liveness?: BridgeLiveness;
   /** Enables the who-is-driving gate: the harness's loopback control
    * endpoint plus its per-boot token. Absent → fully transparent bridge. */
-  gate?: { url: string; token: string };
+  gate?: { pipe: string; path: string; token: string } | { url: string; token: string };
 }
 
 /** Collect a byte stream into complete newline-terminated lines. MCP's
@@ -218,7 +218,7 @@ export function runMcpBridge(options: BridgeOptions): void {
 
   let detach: () => void;
   if (options.gate) {
-    const client = createControlClient({ url: options.gate.url, token: options.gate.token });
+    const client = createControlClient(options.gate);
     const inbound = createLineSplitter(
       createGateInterceptor({
         isHeld: async () => (await client.state(true)).held,

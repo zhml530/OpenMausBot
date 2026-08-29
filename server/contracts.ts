@@ -171,7 +171,9 @@ export interface SendTurnInput {
       kind?: "box";
       boxId: string;
       token: string;
-      control?: { url: string; token: string };
+      control?:
+        | { pipe: string; path: string; token: string }
+        | { url: string; token: string };
     };
     /** Direct stdio connection to a Cua Driver MCP server (host, sandbox, or
      * VPS). `scope` is set only for the user's host desktop; isolated and

@@ -4,6 +4,7 @@ import { StoreProvider, useStore } from "@/state/store";
 import { Onboarding } from "@/components/Onboarding";
 import { emailGateDone, initAnalytics } from "@/lib/analytics";
 import { unreadConversationCount } from "@/lib/unread";
+import { orchestrationFetch } from "@/lib/orchestration";
 import { Sidebar } from "@/components/Sidebar";
 import { ChatView } from "@/components/ChatView";
 import { GroupView } from "@/components/GroupView";
@@ -99,7 +100,7 @@ function Shell() {
     return window.ogb?.desktopViewer?.onState((viewer) => {
       if (viewer.open || !viewer.contextId) return;
       const botId = viewer.contextId;
-      void fetch(`/api/bots/${botId}/computer/control`, {
+      void orchestrationFetch(`/api/bots/${botId}/computer/control`, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ action: "release" }),
@@ -109,7 +110,7 @@ function Shell() {
           if (snap) dispatch({ type: "computerControl", botId, held: snap.held === true, helpReason: snap.helpReason ?? null });
         })
         .catch(() => {});
-      void fetch(`/api/bots/${botId}/computer/viewer-close`, {
+      void orchestrationFetch(`/api/bots/${botId}/computer/viewer-close`, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: "{}",

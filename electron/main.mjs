@@ -1,10 +1,10 @@
-import { app, BrowserWindow, clipboard, desktopCapturer, dialog, ipcMain, Menu, nativeImage, powerSaveBlocker, safeStorage, screen, session, shell, systemPreferences, utilityProcess } from "electron";
+import { app, BrowserWindow, clipboard, desktopCapturer, dialog, ipcMain, Menu, nativeImage, powerSaveBlocker, protocol, safeStorage, screen, session, shell, systemPreferences, utilityProcess } from "electron";
 import { createRequire } from "node:module";
 import { randomUUID } from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { startCua, stopCua, registerCuaIpc, setCuaStateListener } from "./cua.mjs";
 import { createAndroidDeviceController } from "./android-device.mjs";
 import { assemblyAICredential, mintAssemblyAIStreamingToken } from "./assemblyai.mjs";
@@ -45,6 +45,9 @@ import {
 import capabilitiesModule from "./capabilities.cjs";
 
 const { desktopCapabilities, nativeDesktopActions } = capabilitiesModule;
+protocol.registerSchemesAsPrivileged([
+  { scheme: "roundtable-resource", privileges: { standard: true, secure: true, supportFetchAPI: true } },
+]);
 const nativeActions = nativeDesktopActions(process.platform);
 const require = createRequire(import.meta.url);
 const { createDisplayMediaGuard, invokeDisplayMediaCallback, selectCaptureSource } = require(
@@ -59,7 +62,6 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // resolve to ::1 and paint a black window
 const DEV_URL = process.env.ELECTRON_START_URL ?? "http://127.0.0.1:5199";
 const DEFAULT_COMPOSIO_BROKER_URL = "https://Roundtable-composio.milindsoni201.workers.dev";
-let SERVER_PORT = 8799;
 const APP_ICON = path.join(__dirname, "resources/app-icon.png");
 let desktopViewerWindow = null;
 let desktopViewerOwner = null;
@@ -187,8 +189,10 @@ app.on("second-instance", (_event, commandLine) => {
 // A stray server on the default port must not brick the app — fall back to
 // alternate ports until one binds AND identifies as ours (the probe checks
 // our API shape, not just a 200).
-let serverProc = null;
-let serverReady = true;
+let orchestrationProc = null;
+let orchestrationReady = true;
+let appQuitting = false;
+const orchestrationRequests = new Map();
 let secureCredentials = {};
 let secureCredentialState = null;
 
@@ -612,10 +616,8 @@ function readLogTail(logPath) {
 // file is safe to paste into a public issue even if a future log line ever
 // carried a secret.
 async function gatherDiagnostics() {
-  const serverStatus = await fetch(`http://127.0.0.1:${SERVER_PORT}/api/config`, {
-    signal: AbortSignal.timeout(3_000),
-  })
-    .then((res) => (res.ok ? res.json() : null))
+  const serverStatus = await invokeOrchestration({ path: "/api/config" }, 3_000)
+    .then(orchestrationJson)
     .catch(() => null);
   const logPath = path.join(LOG_DIR, "server.log");
   const log = readLogTail(logPath);
@@ -634,14 +636,16 @@ async function gatherDiagnostics() {
   });
 }
 
-async function startServerOn(port) {
-  const entry = path.join(process.resourcesPath, "server", "index.js");
+async function startOrchestrationHost() {
+  const entry = app.isPackaged
+    ? path.join(process.resourcesPath, "server", "ipc-entry.js")
+    : path.join(app.getAppPath(), "dist-server", "ipc-entry.js");
+  const runtimeResources = app.isPackaged ? process.resourcesPath : app.getAppPath();
   const childEnv = managedComposioChildEnvironment(composioBrokerUrl(), secureCredentials, {
     ...process.env,
-    OMB_STATIC_DIR: path.join(process.resourcesPath, "ui"),
-    OMB_RESOURCES_PATH: process.resourcesPath,
-    OMB_SKILLS_DIR: path.join(process.resourcesPath, "skills"),
-    OMB_PORT: String(port),
+    OMB_RESOURCES_PATH: runtimeResources,
+    OMB_SKILLS_DIR: path.join(runtimeResources, "skills"),
+    OMB_TRANSPORT: "ipc",
     OMB_USER_DATA: app.getPath("userData"),
     ...(secureCredentials.composioApiKey
       ? { COMPOSIO_API_KEY: secureCredentials.composioApiKey }
@@ -651,7 +655,7 @@ async function startServerOn(port) {
     // the boot migration has deleted
     ...workspaceCredentialEnv(secureCredentials),
   });
-  slog(`fork ${entry} port=${port}`);
+  slog(`fork ${entry} transport=ipc`);
   const proc = utilityProcess.fork(entry, [], {
     env: childEnv,
     stdio: ["ignore", "pipe", "pipe"],
@@ -662,53 +666,70 @@ async function startServerOn(port) {
   let exited = false;
   proc.once("exit", (code) => {
     exited = true;
-    slog(`exited code=${code}`);
+    if (orchestrationProc === proc) orchestrationProc = null;
+    for (const { reject } of orchestrationRequests.values()) reject(new Error("orchestration host exited"));
+    orchestrationRequests.clear();
+    slog(`orchestration exited code=${code}`);
   });
-  // wait for the port to answer (fresh machine: first boot writes data dirs).
-  // Identity check is by PID: a dev harness server has the same API shape,
-  // so only the child we actually forked (matching pid + static serving)
-  // counts as ours.
-  for (let i = 0; i < 40; i++) {
-    if (exited) return null;
-    try {
-      const res = await fetch(`http://127.0.0.1:${port}/api/health`);
-      if (res.ok) {
-        const body = await res.json().catch(() => null);
-        if (body?.app === "Roundtable" && body.pid === proc.pid && body.static) return proc;
-        break; // someone else owns this port — try the next one
+  proc.on("message", (message) => {
+    if (message?.type === "roundtable:event") {
+      for (const win of BrowserWindow.getAllWindows()) {
+        if (!win.isDestroyed()) win.webContents.send("orchestration:event", message.frame);
       }
-    } catch {
-      /* not up yet */
+      return;
     }
-    await new Promise((r) => setTimeout(r, 500));
+    if (message?.type !== "roundtable:response") return;
+    const pending = orchestrationRequests.get(message.id);
+    if (!pending) return;
+    orchestrationRequests.delete(message.id);
+    pending.resolve(message.response);
+  });
+  const ready = await new Promise((resolve) => {
+    const timeout = setTimeout(() => resolve(false), 20_000);
+    proc.on("message", (message) => {
+      if (message?.type !== "roundtable:ready") return;
+      clearTimeout(timeout);
+      resolve(message.pid === proc.pid);
+    });
+  });
+  if (!ready || exited) {
+    try { proc.kill(); } catch {}
+    return false;
   }
-  try {
-    proc.kill();
-  } catch {}
-  return null;
+  orchestrationProc = proc;
+  return true;
 }
 
-async function startServerPackaged() {
-  // two passes: a quit-and-reopen relaunch can race the dying instance's
-  // server during teardown — one settle-and-retry covers it
-  for (let attempt = 0; attempt < 2; attempt++) {
-    for (const port of [8799, 18799, 28799]) {
-      const proc = await startServerOn(port);
-      if (proc) {
-        serverProc = proc;
-        SERVER_PORT = port;
-        return true;
-      }
-    }
-    await new Promise((r) => setTimeout(r, 2500));
+function invokeOrchestration(request, timeoutMs = 10 * 60_000) {
+  if (!orchestrationProc) return Promise.reject(new Error("orchestration host is unavailable"));
+  const id = randomUUID();
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      orchestrationRequests.delete(id);
+      reject(new Error(`orchestration request timed out: ${request.method ?? "GET"} ${request.path}`));
+    }, timeoutMs);
+    orchestrationRequests.set(id, {
+      resolve: (response) => { clearTimeout(timer); resolve(response); },
+      reject: (error) => { clearTimeout(timer); reject(error); },
+    });
+    orchestrationProc.postMessage({ type: "roundtable:request", id, request });
+  });
+}
+
+function orchestrationJson(response) {
+  const bytes = response?.body instanceof Uint8Array ? response.body : new Uint8Array(response?.body ?? []);
+  const text = new TextDecoder().decode(bytes);
+  const body = text ? JSON.parse(text) : {};
+  if (response.status < 200 || response.status >= 300) {
+    throw new Error(body?.error ?? `Orchestration request failed (${response.status})`);
   }
-  return false;
+  return body;
 }
 
 function syncManagedComposioCredentials() {
-  if (!serverProc) return;
+  if (!orchestrationProc) return;
   try {
-    serverProc.postMessage({
+    orchestrationProc.postMessage({
       type: "Roundtable:managed-composio",
       access: managedComposioAccess(composioBrokerUrl(), secureCredentials),
     });
@@ -720,7 +741,7 @@ function syncManagedComposioCredentials() {
 const ERROR_PAGE =
   "data:text/html;charset=utf-8," +
   encodeURIComponent(
-    `<body style="margin:0;display:flex;align-items:center;justify-content:center;height:100vh;background:#070707;color:#fcfcfc;font:15px -apple-system,system-ui"><div style="text-align:center;max-width:360px"><div style="font-size:40px">🐭</div><h2 style="font-weight:600;margin:12px 0 6px">Couldn't start the bot server</h2><p style="color:#fcfcfc99;line-height:1.5">Something else is using its ports. Quit and reopen Roundtable — if it keeps happening, restart your computer.</p></div></body>`,
+    `<body style="margin:0;display:flex;align-items:center;justify-content:center;height:100vh;background:#070707;color:#fcfcfc;font:15px -apple-system,system-ui"><div style="text-align:center;max-width:360px"><div style="font-size:40px">🐭</div><h2 style="font-weight:600;margin:12px 0 6px">Couldn't start the orchestration process</h2><p style="color:#fcfcfc99;line-height:1.5">Quit and reopen Roundtable. If it keeps happening, export diagnostics from the app menu.</p></div></body>`,
   );
 
 let cuaReady = Promise.resolve({ mode: "unavailable", reason: "not-started" });
@@ -729,7 +750,7 @@ const displayMediaGuard = createDisplayMediaGuard();
 let displayMediaRequestCount = 0;
 
 function rendererOrigin() {
-  return new URL(app.isPackaged ? `http://127.0.0.1:${SERVER_PORT}` : DEV_URL).origin;
+  return new URL(app.isPackaged ? "file:///" : DEV_URL).origin;
 }
 
 function respondToDisplayMediaRequest(callback, response) {
@@ -972,7 +993,7 @@ function createWindow() {
   });
 
   // Packaged CI smoke hook. It validates the real renderer/preload bridge and
-  // same-origin embedded server, then follows the normal window-close path.
+  // embedded IPC orchestrator, then follows the normal window-close path.
   // No debugging port or sandbox override is needed.
   if (process.env.OMB_SMOKE_TEST === "1") {
     win.webContents.once("did-finish-load", async () => {
@@ -997,12 +1018,12 @@ function createWindow() {
             }
             const [initialCapabilities, healthResponse] = await Promise.all([
               window.ogb.getCapabilities(),
-              fetch("/api/health"),
+              window.ogb.orchestration.request({ path: "/api/health" }),
             ]);
-            if (!healthResponse.ok) {
-              throw new Error(\`health request failed: \${healthResponse.status} \${healthResponse.statusText}\`);
+            if (healthResponse.status !== 200) {
+              throw new Error(\`health request failed: \${healthResponse.status}\`);
             }
-            const health = await healthResponse.json();
+            const health = JSON.parse(new TextDecoder().decode(healthResponse.body));
             let capabilities = initialCapabilities;
             let cuaCrashReason = null;
             let cuaRetryStatus = null;
@@ -1025,7 +1046,9 @@ function createWindow() {
             };
           })()
         `);
-        const expectedLocation = `http://127.0.0.1:${SERVER_PORT}/`;
+        const expectedLocation = app.isPackaged
+          ? pathToFileURL(path.join(process.resourcesPath, "ui", "index.html")).href
+          : `${DEV_URL.replace(/\/$/, "")}/`;
         if (result.location !== expectedLocation) {
           throw new Error(
             `unexpected packaged renderer URL: ${result.location} (expected ${expectedLocation})`,
@@ -1075,7 +1098,8 @@ function createWindow() {
   }
 
   if (app.isPackaged) {
-    win.loadURL(serverReady ? `http://127.0.0.1:${SERVER_PORT}` : ERROR_PAGE);
+    if (orchestrationReady) win.loadFile(path.join(process.resourcesPath, "ui", "index.html"));
+    else win.loadURL(ERROR_PAGE);
   } else {
     win.loadURL(DEV_URL);
   }
@@ -1084,6 +1108,31 @@ function createWindow() {
 
 // Local-control screen preview — served from the main process so the Screen
 // Recording permission prompt attributes to the app, never the server
+ipcMain.handle("orchestration:request", (event, request) => {
+  if (event.senderFrame !== mainWindow?.webContents.mainFrame) throw new Error("untrusted renderer");
+  if (!request || typeof request.path !== "string" || !request.path.startsWith("/api/")) {
+    throw new Error("invalid orchestration request");
+  }
+  const method = String(request.method ?? "GET").toUpperCase();
+  if (!["GET", "POST", "PUT", "PATCH", "DELETE"].includes(method)) throw new Error("invalid request method");
+  if (appQuitting) {
+    return {
+      status: 503,
+      headers: { "content-type": "application/json" },
+      body: new TextEncoder().encode('{"error":"app is quitting"}'),
+    };
+  }
+  return invokeOrchestration({
+    path: request.path,
+    method,
+    headers: request.headers && typeof request.headers === "object" ? request.headers : undefined,
+    body:
+      typeof request.body === "string" || request.body instanceof Uint8Array
+        ? request.body
+        : undefined,
+  });
+});
+
 ipcMain.handle("screen:frame", async () => {
   if (process.platform !== "darwin") return null;
   const sources = await desktopCapturer.getSources({
@@ -1253,40 +1302,6 @@ ipcMain.handle("skill-recorder:start", (event) => {
 ipcMain.handle("skill-recorder:stop", () => stopRecorder());
 ipcMain.handle("skill-recorder:save", (_event, payload) => saveSkillRecording(payload));
 
-// ── companion sidecar ──────────────────────────────────────────────────
-// The renderer gets these five and nothing else: it can turn the companion
-// on and off, look at it, open or cancel a pairing window, and remove a
-// device. It cannot reach the sidecar's control port itself.
-ipcMain.handle("companion:state", () => desktopCompanionState());
-ipcMain.handle("companion:start", () => startDesktopCompanion());
-ipcMain.handle("companion:stop", () => stopDesktopCompanion());
-ipcMain.handle("companion:keep-awake", async (_event, enabled) => {
-  rememberCompanionKeepAwake(Boolean(enabled));
-  return desktopCompanionState();
-});
-ipcMain.handle("companion:pairing", async (_event, open) => {
-  await companionPairing(Boolean(open));
-  return desktopCompanionState();
-});
-ipcMain.handle("companion:cloud-desktop", (_event, deviceId, allowed) =>
-  companionCloudDesktopAccess(deviceId, Boolean(allowed)).then(() => desktopCompanionState()),
-);
-ipcMain.handle("companion:revoke", (_event, deviceId) =>
-  companionRevoke(deviceId).then(() => desktopCompanionState()),
-);
-
-// Auth and connector credentials never cross this boundary. Every handler
-// returns the same deliberately tiny, secret-free public account state.
-ipcMain.handle("companion-account:state", () => ensureCompanionAccountService().state());
-ipcMain.handle("companion-account:request-code", (_event, email) =>
-  ensureCompanionAccountService().requestCode(email),
-);
-ipcMain.handle("companion-account:verify-code", (_event, email, code) =>
-  ensureCompanionAccountService().verifyCode(email, code),
-);
-ipcMain.handle("companion-account:retry", () => ensureCompanionAccountService().retry());
-ipcMain.handle("companion-account:sign-out", () => ensureCompanionAccountService().signOut());
-
 ipcMain.handle("desktop:capabilities", async () =>
   desktopCapabilities({
     platform: process.platform,
@@ -1341,14 +1356,13 @@ ipcMain.handle("credential:set", async (_event, name, value) => {
     // cannot receive credentials from Electron at boot. Keep its established
     // local config path there; production always uses the encrypted store.
     const secretStorage = app.isPackaged ? "?secretStorage=external" : "";
-    const response = await fetch(`http://127.0.0.1:${SERVER_PORT}/api/config${secretStorage}`, {
+    const response = await invokeOrchestration({
+      path: `/api/config${secretStorage}`,
       method: "PUT",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(patchFor(secret)),
     });
-    const body = await response.json().catch(() => null);
-    if (!response.ok) throw new Error(body?.error || `Could not save credential (HTTP ${response.status})`);
-    return body;
+    return orchestrationJson(response);
   };
   if (!app.isPackaged) return applyToHarness();
 
@@ -1396,7 +1410,6 @@ app.whenReady().then(async () => {
   // every account/API-key writer must use the shared serialized state.
   secureCredentialState = createSecureCredentialState(secureCredentials, saveSecureCredentials);
   secureCredentials = secureCredentialState.read();
-  const hostedAccount = ensureCompanionAccountService();
   // Display capture remains user-initiated. The renderer first sends a
   // short-lived one-shot intent, then calls getDisplayMedia in the same click.
   // The handler binds that request to the same frame/origin, rejects audio,
@@ -1461,20 +1474,16 @@ app.whenReady().then(async () => {
           return { mode: "unavailable", reason: String(e) };
         })
       : Promise.resolve({ mode: "unavailable", reason: "unsupported-platform" });
-  if (app.isPackaged) serverReady = await startServerPackaged();
-  // The companion the user left on comes back without anyone finding the
-  // toggle again — one attempt, after the harness port is settled, with the
-  // exact options the IPC handler uses. A failure surfaces in companionState
-  // (the panel shows the error) rather than retrying; and it never delays
-  // the window.
-  if (serverReady && companionEnabledAtRest()) {
-    void startDesktopCompanion({ waitForHosted: false, remember: false });
-  }
+  orchestrationReady = await startOrchestrationHost();
+  protocol.handle("roundtable-resource", async (request) => {
+    const url = new URL(request.url);
+    if (url.host !== "app" || !url.pathname.startsWith("/api/attachments/")) {
+      return new Response("Not found", { status: 404 });
+    }
+    const response = await invokeOrchestration({ path: url.pathname, method: "GET" });
+    return new Response(response.body, { status: response.status, headers: response.headers });
+  });
   const win = createWindow();
-  // Reconcile incomplete setup and resume interrupted sign-out only after the
-  // local app is usable. This background network work never gates LAN pairing
-  // or the first window.
-  void hostedAccount.restore().catch(() => {});
   // Registration is optional network work. Start it only after the local
   // server and first window are usable, then update the server child over its
   // private parent port so Connected Apps becomes available without restart.
@@ -1527,23 +1536,16 @@ process.once("SIGTERM", requestSignalQuit);
 app.on("before-quit", (e) => {
   if (cuaCleanedUp) return;
   e.preventDefault();
+  appQuitting = true;
   try {
-    serverProc?.kill();
+    orchestrationProc?.kill();
   } catch {}
-  // Release the sleep blocker synchronously; child shutdown is awaited below.
-  syncCompanionKeepAwake(false, false);
   // a live dictation session runs its own helper child that holds the mic —
   // stop it here so quitting never orphans a recording process
   if (nativeActions.appleSpeech) stopSpeech();
   stopRecorder();
   const cleanup = Promise.race([
-    Promise.all([
-      stopCua().catch(() => {}),
-      // Both listeners reachable from outside the app are owned children.
-      // Shut the connector down first, then the sidecar, without changing the
-      // remembered toggle the next launch will restore.
-      stopDesktopCompanion({ remember: false }).catch(() => {}),
-    ]),
+    Promise.all([stopCua().catch(() => {})]),
     new Promise((resolve) => setTimeout(resolve, CUA_STOP_TIMEOUT_MS).unref()),
   ]);
   cleanup.then(() => {

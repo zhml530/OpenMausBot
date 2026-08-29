@@ -8,11 +8,11 @@ response as soon as possible, normally within a few days.
 
 ## Scope notes for researchers
 
-- The harness server binds **127.0.0.1 only** and has no authentication by design — it trusts the
-  local user. Anything that makes it reachable from off-machine, or lets one local *unprivileged
-  other user* drive it, is a vulnerability.
-- API keys live in `~/.Roundtable/config.json` and are write-only through the API (`configured`
-  booleans out, never values). Any path that echoes a stored secret back — API response, SSE event,
+- The desktop renderer reaches orchestration only through a narrow `contextBridge` API. The utility
+  process must not bind a TCP listener. Provider helper processes use a randomized owner-only named
+  pipe/Unix socket; access by another local user is a vulnerability.
+- Packaged-app API keys use the operating-system credential store and are write-only through desktop
+  IPC (`configured` booleans out, never values). Any path that echoes a stored secret back — IPC event,
   log line, argv visible in `ps` — is a vulnerability.
 - Agents run real CLIs (`claude`, `codex`) with the user's own privileges, and the permission broker
   is the consent layer for risky actions. Bypasses of the broker (approving without a user decision,

@@ -13,34 +13,20 @@ ipcRenderer.on("package:install", (_event, url) => {
 contextBridge.exposeInMainWorld("ogb", {
   /** Host platform ("darwin" | "win32" | "linux") — for platform-aware UI. */
   platform: process.platform,
+  orchestration: {
+    request: (request) => ipcRenderer.invoke("orchestration:request", request),
+    onEvent: (cb) => {
+      const handler = (_event, frame) => cb(frame);
+      ipcRenderer.on("orchestration:event", handler);
+      return () => ipcRenderer.removeListener("orchestration:event", handler);
+    },
+  },
   setTitleBarTheme: (colors) => ipcRenderer.send("desktop:title-bar-theme", colors),
   getCapabilities: () => ipcRenderer.invoke("desktop:capabilities"),
   onCapabilitiesChanged: (cb) => {
     const handler = (_event, capabilities) => cb(capabilities);
     ipcRenderer.on("desktop:capabilities-changed", handler);
     return () => ipcRenderer.removeListener("desktop:capabilities-changed", handler);
-  },
-  /** The companion sidecar: the one part of this app that listens off the
-   * machine, so it runs as its own process and is off until switched on.
-   * Every call answers with the whole state, so the panel never has to
-   * stitch two round-trips together. */
-  companion: {
-    state: () => ipcRenderer.invoke("companion:state"),
-    start: () => ipcRenderer.invoke("companion:start"),
-    stop: () => ipcRenderer.invoke("companion:stop"),
-    keepAwake: (enabled) => ipcRenderer.invoke("companion:keep-awake", enabled),
-    pairing: (open) => ipcRenderer.invoke("companion:pairing", open),
-    cloudDesktop: (deviceId, allowed) => ipcRenderer.invoke("companion:cloud-desktop", deviceId, allowed),
-    revoke: (deviceId) => ipcRenderer.invoke("companion:revoke", deviceId),
-  },
-  /** Optional account-backed HTTPS access for Companion. Secrets stay in the
-   * main process; the renderer sees only status and narrow user actions. */
-  companionAccount: {
-    state: () => ipcRenderer.invoke("companion-account:state"),
-    requestCode: (email) => ipcRenderer.invoke("companion-account:request-code", email),
-    verifyCode: (email, code) => ipcRenderer.invoke("companion-account:verify-code", email, code),
-    retry: () => ipcRenderer.invoke("companion-account:retry"),
-    signOut: () => ipcRenderer.invoke("companion-account:sign-out"),
   },
   localControl: {
     status: () => ipcRenderer.invoke("cua:linux-status"),

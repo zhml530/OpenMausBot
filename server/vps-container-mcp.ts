@@ -18,7 +18,8 @@ try {
 
 // The who-is-driving pair rides in env, not argv — argv is world-readable
 // through `ps`, and the token guards a loopback endpoint.
-const controlUrl = process.env.OMB_CONTROL_URL ?? "";
+const controlPipe = process.env.OMB_CONTROL_PIPE ?? "";
+const controlPath = process.env.OMB_CONTROL_PATH ?? "";
 const controlToken = process.env.OMB_CONTROL_TOKEN ?? "";
 
 runMcpBridge({
@@ -29,5 +30,7 @@ runMcpBridge({
   // driver: a busy desktop mid-tool-call must never look dead, while an
   // unreachable VPS must, and `docker version` distinguishes exactly that.
   liveness: { command: "docker", args: vpsDockerArgs(sshAlias, ["version", "--format", "{{.Server.Version}}"]) },
-  ...(controlUrl && controlToken ? { gate: { url: controlUrl, token: controlToken } } : {}),
+  ...(controlPipe && controlPath && controlToken
+    ? { gate: { pipe: controlPipe, path: controlPath, token: controlToken } }
+    : {}),
 });

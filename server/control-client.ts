@@ -40,15 +40,19 @@ const DISENGAGED: ControlState = { held: false, helpOpen: false };
 
 export function createControlClient(options?: {
   url?: string;
+  pipe?: string;
+  path?: string;
   token?: string;
   cacheMs?: number;
   fetchImpl?: typeof fetch;
 }): ControlClient {
   const url = options?.url ?? process.env.OMB_CONTROL_URL ?? "";
+  const pipe = options?.pipe ?? process.env.OMB_CONTROL_PIPE ?? "";
+  const path = options?.path ?? process.env.OMB_CONTROL_PATH ?? "";
   const token = options?.token ?? process.env.OMB_CONTROL_TOKEN ?? "";
   const cacheMs = options?.cacheMs ?? 750;
   const fetchImpl = options?.fetchImpl ?? fetch;
-  const configured = Boolean(url && token);
+  const configured = Boolean(token && ((pipe && path) || url));
   const headers = { authorization: `Bearer ${token}`, "content-type": "application/json" };
 
   let cachedAt = 0;
@@ -56,6 +60,11 @@ export function createControlClient(options?: {
 
   async function read(): Promise<ControlState> {
     try {
+      if (pipe && path) {
+        const { localRpcJson } = await import("./local-rpc.ts");
+        const body: any = await localRpcJson(pipe, { path, headers });
+        return { held: body?.held === true, helpOpen: body?.helpOpen === true };
+      }
       const res = await fetchImpl(url, { headers, signal: AbortSignal.timeout(2_000) });
       if (!res.ok) return DISENGAGED;
       const body: any = await res.json().catch(() => null);
@@ -78,6 +87,13 @@ export function createControlClient(options?: {
     async requestHelp(reason: string): Promise<string | null> {
       if (!configured) return null;
       try {
+        if (pipe && path) {
+          const { localRpcJson } = await import("./local-rpc.ts");
+          const body: any = await localRpcJson(pipe, {
+            path, method: "POST", headers, body: JSON.stringify({ reason }),
+          });
+          return typeof body?.requestId === "string" && body.requestId ? body.requestId : null;
+        }
         const res = await fetchImpl(url, {
           method: "POST",
           headers,
@@ -94,6 +110,13 @@ export function createControlClient(options?: {
     async expireHelp(requestId: string): Promise<void> {
       if (!configured || !requestId) return;
       try {
+        if (pipe && path) {
+          const { localRpcJson } = await import("./local-rpc.ts");
+          await localRpcJson(pipe, {
+            path, method: "DELETE", headers, body: JSON.stringify({ requestId }),
+          });
+          return;
+        }
         await fetchImpl(url, {
           method: "DELETE",
           headers,

@@ -182,7 +182,8 @@ export function antigravityComputerMcpServer(
         OGB_BOX_TOKEN: proxyEnv.OGB_BOX_TOKEN ?? "",
         // who-is-driving endpoint, so a person taking the wheel in the
         // panel pauses this bot's hands mid-turn
-        OMB_CONTROL_URL: proxyEnv.OMB_CONTROL_URL ?? "",
+        OMB_CONTROL_PIPE: proxyEnv.OMB_CONTROL_PIPE ?? "",
+        OMB_CONTROL_PATH: proxyEnv.OMB_CONTROL_PATH ?? "",
         OMB_CONTROL_TOKEN: proxyEnv.OMB_CONTROL_TOKEN ?? "",
       },
     };

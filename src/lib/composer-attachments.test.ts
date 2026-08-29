@@ -68,9 +68,9 @@ describe("attachmentBasename", () => {
 
   it("turns only generated image names into same-origin preview URLs", () => {
     expect(attachmentImageUrl("/a/b/123e4567-e89b-12d3-a456-426614174000.png")).toBe(
-      "/api/attachments/123e4567-e89b-12d3-a456-426614174000.png",
+      "roundtable-resource://app/api/attachments/123e4567-e89b-12d3-a456-426614174000.png",
     );
-    expect(attachmentImageUrl("C:\\a\\b\\photo.webp")).toBe("/api/attachments/photo.webp");
+    expect(attachmentImageUrl("C:\\a\\b\\photo.webp")).toBe("roundtable-resource://app/api/attachments/photo.webp");
     expect(attachmentImageUrl("https://attacker.example/tracker.png?cookie=1")).toBeNull();
     expect(attachmentImageUrl("/a/b/payload.svg")).toBeNull();
     expect(attachmentImageUrl("/a/b/not%2Fan-image.png")).toBeNull();

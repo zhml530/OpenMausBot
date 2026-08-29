@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 
 import { cn } from "@/lib/cn";
+import { orchestrationFetch } from "@/lib/orchestration";
 import { useDesktopCapabilities } from "./DesktopCapabilities";
 
 const LINUX_GUIDE_URL =
@@ -34,7 +35,7 @@ export function LinuxLocalControl() {
     setError(null);
     try {
       if (action === "disable" || action === "retry") {
-        const response = await fetch("/api/local-computer/interrupt", { method: "POST" });
+        const response = await orchestrationFetch("/api/local-computer/interrupt", { method: "POST" });
         if (!response.ok) throw new Error("Could not stop active local computer turns.");
       }
       await window.ogb.localControl[action]();

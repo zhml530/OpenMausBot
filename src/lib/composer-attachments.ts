@@ -1,3 +1,5 @@
+import { orchestrationFetch, orchestrationResourceUrl } from "./orchestration.js";
+
 // What is attached to the next message: text too long for the input or a
 // file dropped onto the window. Chips fold back into a normal prompt on
 // send, so every driver receives the same message shape.
@@ -102,7 +104,7 @@ export async function imageAttachmentFromFile(file: File): Promise<ImageAttachme
   if (!isImageFile(file)) return null;
   if (file.size > IMAGE_MAX_BYTES) throw Object.assign(new Error(`${file.name} exceeds 10 MB`), { status: 413 });
   const bytes = new Uint8Array(await file.arrayBuffer());
-  const response = await fetch("/api/attachments", {
+  const response = await orchestrationFetch("/api/attachments", {
     method: "POST",
     headers: { "content-type": file.type },
     body: bytes,
@@ -246,7 +248,7 @@ export function attachmentBasename(path: string): string {
 export function attachmentImageUrl(path: string): string | null {
   const name = attachmentBasename(path);
   if (!/^[A-Za-z0-9-]+\.(png|jpg|gif|webp)$/.test(name)) return null;
-  return `/api/attachments/${encodeURIComponent(name)}`;
+  return orchestrationResourceUrl(`/api/attachments/${encodeURIComponent(name)}`) ?? null;
 }
 
 /** One intake path for files arriving by drop OR by the composer's attach

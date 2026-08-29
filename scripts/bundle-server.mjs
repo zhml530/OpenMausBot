@@ -18,7 +18,7 @@
 // drivers/ nested; import.meta.url still resolves to the same location, so
 // that lookup is unaffected.
 import { build } from "esbuild";
-import { copyFileSync, mkdirSync } from "node:fs";
+import { copyFileSync, mkdirSync, rmSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
@@ -40,7 +40,7 @@ const yamlEsmPlugin = {
 
 // Every file run as its own process. Keep in sync with the spawn sites above.
 const ENTRY_POINTS = [
-  "index.ts",
+  "ipc-entry.ts",
   // The packaged smoke probe imports this manifest directly. Importing the
   // shared avatar contract widens TypeScript's inferred emit root to the repo,
   // so tsc may place its copy under dist-server/server/. Bundle an explicit
@@ -57,6 +57,10 @@ const ENTRY_POINTS = [
   "drivers/dweb-proxy.ts",
   "drivers/phone-proxy.ts",
 ];
+
+// Pre-IPC builds emitted a standalone HTTP host. Never let a stale copy ride
+// into a desktop package after switching the runtime to ipc-entry.js.
+rmSync(join(root, "dist-server", "index.js"), { force: true });
 
 await build({
   entryPoints: ENTRY_POINTS.map((entry) => join(server, entry)),

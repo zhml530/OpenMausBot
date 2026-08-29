@@ -1,6 +1,7 @@
-// Roundtable server — the harness host. Clients hold no transports
-// (upstream rule): the React app dispatches typed commands over HTTP and
-// folds one SSE event stream; every provider process runs here.
+// Roundtable orchestration host. The desktop renderer reaches this process
+// through Electron IPC; provider processes still run here. The HTTP-shaped
+// handler remains transport-neutral so the IPC adapter and focused route
+// tests share one implementation.
 import { randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
 import { existsSync, readFileSync, unlinkSync } from "node:fs";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
@@ -218,7 +219,7 @@ function agentsIntegration(botId: string, threadId: string, depth: number) {
     args: [agentsProxyPath],
     env: {
       ...AGENTS_NODE_FLAG,
-      OMB_HARNESS_URL: `http://127.0.0.1:${PORT}`,
+      OMB_HARNESS_PIPE: process.env.OMB_HARNESS_PIPE ?? "",
       OMB_BOT_ID: botId,
       OMB_THREAD_ID: threadId,
       OMB_COMMS_TOKEN: COMMS_TOKEN,
@@ -237,7 +238,7 @@ function phoneIntegration() {
 
 function connectedAppsIntegration(botId: string, threadId: string) {
   return composio.mcpIntegration(cfg, {
-    harnessUrl: `http://127.0.0.1:${PORT}`,
+    harnessPipe: process.env.OMB_HARNESS_PIPE ?? "",
     commsToken: COMMS_TOKEN,
     botId,
     threadId,
@@ -255,7 +256,8 @@ const computerControl = new ComputerControl((botId, snapshot) => {
 /** The loopback endpoint a bot's computer proxy polls before acting. */
 function controlIntegration(botId: string) {
   return {
-    url: `http://127.0.0.1:${PORT}/api/internal/computer-control?botId=${encodeURIComponent(botId)}`,
+    pipe: process.env.OMB_HARNESS_PIPE ?? "",
+    path: `/api/internal/computer-control?botId=${encodeURIComponent(botId)}`,
     token: COMMS_TOKEN,
   };
 }
@@ -483,6 +485,16 @@ function broadcast(payload: Record<string, unknown>) {
       sseClients.delete(client);
     }
   }
+  for (const listener of [...desktopFrameListeners]) listener(payload);
+}
+
+const desktopFrameListeners = new Set<(payload: Record<string, unknown>) => void>();
+
+/** Desktop utility-process transport. Unlike SSE, Electron IPC is already a
+ * reliable ordered channel, so it needs neither framing nor replay cursors. */
+export function subscribeDesktopFrames(listener: (payload: Record<string, unknown>) => void): () => void {
+  desktopFrameListeners.add(listener);
+  return () => desktopFrameListeners.delete(listener);
 }
 
 // ── server-side event folding (upstream's ingestion worker, miniature) ──
@@ -1598,7 +1610,12 @@ async function startTurn(
             const vpsControl = controlIntegration(bot.id);
             integrations.localComputer = {
               ...vpsMcp,
-              env: { ...vpsMcp.env, OMB_CONTROL_URL: vpsControl.url, OMB_CONTROL_TOKEN: vpsControl.token },
+              env: {
+                ...vpsMcp.env,
+                OMB_CONTROL_PIPE: vpsControl.pipe,
+                OMB_CONTROL_PATH: vpsControl.path,
+                OMB_CONTROL_TOKEN: vpsControl.token,
+              },
             };
             computerKind = "vps";
             previewCapture = () => vps.vpsComputerScreenshot(targetCfg, bot.id);
@@ -1856,12 +1873,14 @@ const webhooks = new WebhookManager({
 
 let webhookIngress: WebhookIngress | null = null;
 let webhookIngressError: string | null = null;
-try {
-  webhookIngress = await listenWebhookIngress(webhooks, { port: WEBHOOK_PORT });
-  console.log(`Roundtable webhook receiver on ${webhookIngress.baseUrl}`);
-} catch (error) {
-  webhookIngressError = error instanceof Error ? error.message : String(error);
-  console.error(`Roundtable webhook receiver unavailable: ${webhookIngressError}`);
+if (process.env.OMB_TRANSPORT !== "ipc") {
+  try {
+    webhookIngress = await listenWebhookIngress(webhooks, { port: WEBHOOK_PORT });
+    console.log(`Roundtable webhook receiver on ${webhookIngress.baseUrl}`);
+  } catch (error) {
+    webhookIngressError = error instanceof Error ? error.message : String(error);
+    console.error(`Roundtable webhook receiver unavailable: ${webhookIngressError}`);
+  }
 }
 
 const webhookIngressStatus = () => ({
@@ -2683,7 +2702,7 @@ function isAllowedOrigin(origin: string | undefined | null): boolean {
   }
 }
 
-const server = createServer(async (req, res) => {
+export async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise<unknown> {
   const url = new URL(req.url ?? "/", `http://localhost:${PORT}`);
   const path = url.pathname;
   const method = req.method ?? "GET";
@@ -4650,11 +4669,10 @@ const server = createServer(async (req, res) => {
       });
     }
 
-    // identity handshake for the packaged app's port fallback: the forked
-    // child proves it is OURS by echoing its pid (a stray dev server has
-    // the same API shape but a different pid)
+    // Utility-process liveness and identity response used by diagnostics and
+    // the packaged desktop smoke test.
     if (method === "GET" && path === "/api/health") {
-      return json(res, 200, { app: "Roundtable", pid: process.pid, static: Boolean(STATIC_DIR) });
+      return json(res, 200, { app: "Roundtable", pid: process.pid, transport: process.env.OMB_TRANSPORT ?? "http" });
     }
 
     // ── inspector: a thread's runtime events + native protocol tee ──
@@ -5157,10 +5175,13 @@ const server = createServer(async (req, res) => {
     const status = (e as any)?.status ?? 500;
     return json(res, status, { error: e instanceof Error ? e.message : String(e) });
   }
-});
+}
 
-server.listen(PORT, "127.0.0.1", () => {
-  console.log(`Roundtable server on http://127.0.0.1:${PORT}`);
+// Kept only for route-level tests and an explicit legacy development mode.
+// Desktop builds set OMB_TRANSPORT=ipc and never bind a TCP port.
+const server = process.env.OMB_TRANSPORT === "ipc" ? null : createServer(handleRequest);
+server?.listen(PORT, "127.0.0.1", () => {
+  console.log(`Roundtable test server on http://127.0.0.1:${PORT}`);
 });
 
 for (const signal of ["SIGINT", "SIGTERM"] as const) {

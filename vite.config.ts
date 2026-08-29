@@ -4,6 +4,7 @@ import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 
 export default defineConfig({
+  base: "./",
   plugins: [react(), tailwindcss()],
   test: {
     environment: "node",
@@ -11,7 +12,6 @@ export default defineConfig({
       "server/**/*.test.ts",
       "electron/**/*.test.mjs",
       "src/**/*.test.ts",
-      "companion/**/*.test.ts",
       "scripts/**/*.test.mjs",
     ],
     setupFiles: ["server/testing/setup.ts"],
@@ -35,13 +35,6 @@ export default defineConfig({
     // trigger dev full-page reloads
     watch: {
       ignored: ["**/release/**", "**/build/**", "**/dist/**", "**/electron/resources/**"],
-    },
-    // the harness server owns every provider process; the app only ever
-    // talks to /api — clients hold no transports
-    proxy: {
-      "/api": {
-        target: `http://127.0.0.1:${process.env.OMB_PORT || process.env.OGB_PORT || 8799}`,
-      },
     },
   },
 });

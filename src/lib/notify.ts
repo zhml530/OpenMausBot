@@ -2,6 +2,7 @@
 // The server decides *whether* something is worth an interruption (it owns
 // the per-bot toggle); this only decides how to show it here.
 import type { Notification } from "../../server/notify.ts";
+import { orchestrationResourceUrl } from "./orchestration";
 
 export type NotifyFrame = Notification;
 
@@ -26,7 +27,7 @@ export interface NotificationBotIdentity {
  * coalescing key platforms replace on (`tag`) and its avatar, when the
  * profile has one. Pure so the grouping rule stays testable on its own. */
 export function buildNotificationOptions(bot: NotificationBotIdentity): NotificationOptions {
-  return { tag: `Roundtable:${bot.id}`, icon: bot.avatarUrl ?? undefined };
+  return { tag: `Roundtable:${bot.id}`, icon: orchestrationResourceUrl(bot.avatarUrl) };
 }
 
 /** Show one, unless the app is already in front of the user — a banner over

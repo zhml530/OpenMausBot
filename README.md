@@ -63,8 +63,8 @@ already have:
 - **Bring your own agents.** Bots run on the `claude`, `codex`, and `grok` CLIs installed on your own machine
   — your existing logins and subscriptions, no new accounts, no proxy in the middle. Point any engine at a
   custom CLI binary (a versioned build or wrapper) in **Settings → Engines**.
-- **Local first.** One small harness server on `127.0.0.1` owns every agent process. Transcripts, keys, and
-  events live in `~/.Roundtable`, not a cloud.
+- **Local first.** An Electron utility process owns every agent process and talks to the renderer over private,
+  typed IPC. Transcripts, keys, and events live in `~/.Roundtable`, not a cloud or a loopback web service.
 - **Agents with hands.** Each bot can use a cloud Linux desktop, an isolated Local VM, or—where the platform
   safety boundary is currently certified—your own computer, plus 500+ apps through Composio. Host control is
   available on macOS and Ubuntu Xorg after explicit opt-in. Ubuntu Wayland host control remains disabled while
@@ -176,17 +176,18 @@ expressions · screenshots of the bot's work folded into the transcript.
 
 ## How it works
 
-Two processes. The app holds no transports of its own — it sends typed commands over HTTP and folds one SSE
-event stream into state. The harness server owns every agent process and normalizes each provider's native
-protocol into one canonical runtime event stream (logged per-thread as NDJSON).
+Two processes. The sandboxed renderer sends typed commands through the preload bridge and folds one ordered IPC
+event stream into state. The orchestration utility process owns every agent process and normalizes each provider's
+native protocol into one canonical runtime event stream (logged per-thread as NDJSON).
 
 ```mermaid
 flowchart LR
-    subgraph app ["App — React + Tailwind (5199)"]
+    subgraph app ["Desktop renderer — React + Tailwind"]
         UI[Chat UI · model picker · computer panel]
     end
-    subgraph server ["Harness server (127.0.0.1:8799)"]
-        REG[Driver registry] --> BUS[Event bus → SSE]
+    PRELOAD[Typed contextBridge]
+    subgraph server ["Orchestration utility process"]
+        REG[Driver registry] --> BUS[Canonical event bus]
         BROKER[Permission broker]
     end
     subgraph agents ["Agents on your computer"]
@@ -194,8 +195,8 @@ flowchart LR
         CX[codex CLI]
         GR[grok CLI]
     end
-    UI -- "HTTP commands" --> server
-    BUS -- "one SSE stream" --> UI
+    UI -- "typed invoke" --> PRELOAD --> server
+    BUS -- "ordered IPC events" --> PRELOAD --> UI
     REG --> CL & CX & GR
     CL & CX & GR -- "permission requests" --> BROKER
     server -- "Box API" --> BOX[("Cloud computer<br/>box.ascii.dev")]
@@ -206,14 +207,14 @@ flowchart LR
 |---|---|---|
 | Drivers | `server/drivers/` | One per provider: Claude, Codex, and Grok Build over their local CLIs (stream-JSON / JSON-RPC / ACP), plus a cloud-computer agent. Unknown drivers degrade to "unavailable", never crash the fleet. |
 | Harness | `server/harness/` | Registry (configs → live instances) and the fan-in event bus every client folds. |
-| API | `server/index.ts` | Bots, turns, approvals, model catalog, computer lifecycle, connectors, config — HTTP + SSE. |
+| Desktop IPC | `server/ipc-entry.ts`, `electron/preload.cjs` | Bots, turns, approvals, model catalog, computer lifecycle, connectors, and config without a listening TCP port. |
 | Voice | `server/tts/` | ElevenLabs, bring your own key. Runs on the harness so the key never reaches the UI; markdown is rewritten into something worth hearing before it is spoken. |
-| App | `src/` | The chat shell. Server-backed store, one reducer, zero client-side transports. |
-| Desktop | `electron/` | macOS, Windows, and Ubuntu shells with an embedded harness and platform capabilities; Apple speech stays macOS-only, Ubuntu Xorg has opt-in local control, and Wayland remains fail-closed. |
+| App | `src/` | The desktop chat shell. IPC-backed store, one reducer, and no direct Node access. |
+| Desktop | `electron/` | macOS, Windows, and Ubuntu shell, typed preload boundary, embedded orchestrator, and platform capabilities. |
 
 ## Quick start
 
-**Released builds:** the harness server is embedded, so no separate server setup is required.
+**Released builds:** the orchestration process is embedded; the app does not open a local HTTP port.
 
 | | Download | Install |
 |---|---|---|
@@ -230,9 +231,8 @@ See the [Ubuntu Desktop guide](docs/linux-desktop.md) for installation, capabili
 git clone https://github.com/milind-soni/Roundtable && cd Roundtable
 pnpm install
 
-pnpm dev:server    # harness server → 127.0.0.1:8799
-pnpm dev           # app → http://127.0.0.1:5199
-pnpm dev:desktop   # Electron shell; keep the two commands above running
+pnpm dev           # Vite renderer development server
+pnpm dev:desktop   # build/start the IPC orchestrator and Electron shell
 ```
 
 Requirements: **macOS, Windows, or Ubuntu 24.04 x64**, **Node 24+**, **pnpm**, and at least one agent CLI — [`claude`](https://claude.com/claude-code),

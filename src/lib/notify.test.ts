@@ -93,7 +93,7 @@ describe("desktop notifications", () => {
     const avatarUrl = "/api/attachments/123e4567-e89b-12d3-a456-426614174000.png";
 
     showNotification(frame, vi.fn(), avatarUrl);
-    expect(notices[0]?.options?.icon).toBe(avatarUrl);
+    expect(notices[0]?.options?.icon).toBe(`roundtable-resource://app${avatarUrl}`);
 
     showNotification(frame, vi.fn(), null);
     expect(notices[1]?.options?.icon).toBeUndefined();

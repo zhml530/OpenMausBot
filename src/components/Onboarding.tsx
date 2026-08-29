@@ -6,6 +6,7 @@ import { useDesktopCapabilities } from "./DesktopCapabilities";
 import { EngineSetup } from "./EngineSetup";
 import { ProviderMark } from "./ProviderIcons";
 import type { InstanceInfo } from "@/state/store";
+import { orchestrationFetch } from "@/lib/orchestration";
 
 // Three-step first-run onboarding: who you are (email), what's installed
 // (live engine checks from the harness), what the app may use (TCC).
@@ -118,7 +119,7 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
     identifyEmail(email.trim().toLowerCase());
     // persisted server-side (~/.Roundtable/config.json) — the sidebar
     // footer reads it back through /api/config
-    void fetch("/api/config", {
+    void orchestrationFetch("/api/config", {
       method: "PUT",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ profile: { name: name.trim(), email: email.trim().toLowerCase() } }),
@@ -136,7 +137,7 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
     let latestRequest = 0;
     const refresh = () => {
       const request = ++latestRequest;
-      fetch("/api/instances")
+      orchestrationFetch("/api/instances")
         .then((r) => r.json())
         .then((d) => active && request === latestRequest && setInstances(d.instances ?? []))
         .catch(() => active && request === latestRequest && setInstances([]));

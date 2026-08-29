@@ -1058,7 +1058,7 @@ type ContainerMcpLaunch = {
 
 export function containerComputerMcp(
   runtime: Runtime,
-  control?: { url: string; token: string },
+  control?: { pipe: string; path: string; token: string } | { url: string; token: string },
   target: LocalVmTarget = SHARED_LOCAL_VM_TARGET,
 ): ContainerMcpLaunch {
   return {
@@ -1068,7 +1068,11 @@ export function containerComputerMcp(
     // through `ps` for the life of the bridge.
     env: {
       ELECTRON_RUN_AS_NODE: "1",
-      ...(control ? { OMB_CONTROL_URL: control.url, OMB_CONTROL_TOKEN: control.token } : {}),
+      ...(control
+        ? "pipe" in control
+          ? { OMB_CONTROL_PIPE: control.pipe, OMB_CONTROL_PATH: control.path, OMB_CONTROL_TOKEN: control.token }
+          : { OMB_CONTROL_URL: control.url, OMB_CONTROL_TOKEN: control.token }
+        : {}),
     },
   };
 }
@@ -1131,13 +1135,23 @@ export function setupCommands(
  * bypass it and mount Cua Driver's official MCP server through
  * containerComputerMcp(). */
 export function computerProxyEnv(
-  computer: { boxId?: string; token?: string; control?: { url: string; token: string } },
+  computer: {
+    boxId?: string;
+    token?: string;
+    control?: { pipe: string; path: string; token: string } | { url: string; token: string };
+  },
 ): NodeJS.ProcessEnv {
   return {
     OGB_BOX_ID: computer.boxId ?? "",
     OGB_BOX_TOKEN: computer.token ?? "",
     ...(computer.control
-      ? { OMB_CONTROL_URL: computer.control.url, OMB_CONTROL_TOKEN: computer.control.token }
+      ? "pipe" in computer.control
+        ? {
+            OMB_CONTROL_PIPE: computer.control.pipe,
+            OMB_CONTROL_PATH: computer.control.path,
+            OMB_CONTROL_TOKEN: computer.control.token,
+          }
+        : { OMB_CONTROL_URL: computer.control.url, OMB_CONTROL_TOKEN: computer.control.token }
       : {}),
   };
 }

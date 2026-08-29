@@ -17,7 +17,8 @@ if (!container || !/^[a-zA-Z0-9_.-]+$/.test(container) || !socket?.startsWith("/
 
 // The who-is-driving pair rides in env, not argv — argv is world-readable
 // through `ps`, and the token guards a loopback endpoint.
-const controlUrl = process.env.OMB_CONTROL_URL ?? "";
+const controlPipe = process.env.OMB_CONTROL_PIPE ?? "";
+const controlPath = process.env.OMB_CONTROL_PATH ?? "";
 const controlToken = process.env.OMB_CONTROL_TOKEN ?? "";
 
 runMcpBridge({
@@ -26,5 +27,7 @@ runMcpBridge({
   label: "Cua Driver",
   // No liveness watchdog: the runtime CLI talks to a local daemon and fails
   // fast on its own — there is no silent WAN peer to wedge on.
-  ...(controlUrl && controlToken ? { gate: { url: controlUrl, token: controlToken } } : {}),
+  ...(controlPipe && controlPath && controlToken
+    ? { gate: { pipe: controlPipe, path: controlPath, token: controlToken } }
+    : {}),
 });

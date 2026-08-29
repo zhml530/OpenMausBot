@@ -97,16 +97,18 @@ type SkillRecordingPayload = {
   interface Window {
     ogb?: {
       platform: NodeJS.Platform;
+      orchestration: {
+        request(request: {
+          path: string;
+          method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
+          headers?: Record<string, string>;
+          body?: string | Uint8Array;
+        }): Promise<{ status: number; headers: Record<string, string>; body: Uint8Array }>;
+        onEvent(cb: (frame: Record<string, unknown>) => void): () => void;
+      };
       setTitleBarTheme(colors: { background: string; symbols: string }): void;
       getCapabilities(): Promise<DesktopCapabilities>;
       onCapabilitiesChanged(cb: (capabilities: DesktopCapabilities) => void): () => void;
-      companionAccount?: {
-        state(): Promise<CompanionAccountState>;
-        requestCode(email: string): Promise<CompanionAccountState>;
-        verifyCode(email: string, code: string): Promise<CompanionAccountState>;
-        retry(): Promise<CompanionAccountState>;
-        signOut(): Promise<CompanionAccountState>;
-      };
       localControl: {
         status(): Promise<LinuxLocalControlStatus>;
         enable(): Promise<LinuxLocalControlStatus>;
@@ -220,14 +222,6 @@ export interface UpdaterState {
     | "error";
   version?: string;
   percent?: number;
-  message?: string;
-}
-
-export interface CompanionAccountState {
-  available: boolean;
-  status: "signed-out" | "connecting" | "ready" | "error";
-  email?: string;
-  endpoint?: string;
   message?: string;
 }
 
