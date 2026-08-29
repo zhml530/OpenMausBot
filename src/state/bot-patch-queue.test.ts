@@ -125,6 +125,48 @@ describe("bot patch queue", () => {
     );
   });
 
+  it("does not let an in-flight profile save revert a later model pick", async () => {
+    const profileSave = deferredBot();
+    const modelSave = deferredBot();
+    const sent: BotUpdatePatch[] = [];
+    const authoritative = vi.fn();
+    const queue = createBotPatchQueue({
+      send: (_botId, patch) => {
+        sent.push(patch);
+        return sent.length === 1 ? profileSave.promise : modelSave.promise;
+      },
+      reconcile: async () => bot(),
+      onAuthoritative: authoritative,
+      onError: vi.fn(),
+    });
+    const selection = { instanceId: "copilot", model: "gpt-5.3-codex" };
+
+    queue.enqueue("bot-1", { title: "Edited profile" }, bot());
+    await vi.advanceTimersByTimeAsync(400);
+    queue.enqueue("bot-1", { modelSelection: selection }, bot());
+    const flushed = queue.flush("bot-1");
+
+    profileSave.resolve(bot({ title: "Edited profile" }));
+    await vi.runAllTicks();
+    await Promise.resolve();
+    expect(authoritative).toHaveBeenLastCalledWith(
+      expect.objectContaining({ title: "Edited profile", modelSelection: { instanceId: "fixture", model: "default" } }),
+      { modelSelection: selection },
+    );
+    expect(sent).toEqual([
+      { title: "Edited profile" },
+      { modelSelection: selection },
+    ]);
+
+    modelSave.resolve(bot({ title: "Edited profile", modelSelection: selection }));
+    await vi.runAllTicks();
+    await flushed;
+    expect(authoritative).toHaveBeenLastCalledWith(
+      expect.objectContaining({ modelSelection: selection }),
+      {},
+    );
+  });
+
   it("reconciles a rejected optimistic profile value to the server bot", async () => {
     const authoritative = vi.fn();
     const onError = vi.fn();

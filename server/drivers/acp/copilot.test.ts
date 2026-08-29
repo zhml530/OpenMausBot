@@ -13,6 +13,8 @@ import {
   copilotIsAuthenticated,
   CopilotAgentDriver,
   decodeCopilotModelHelp,
+  decodeCopilotSessionModels,
+  probeCopilotAcpModels,
 } from "./copilot.ts";
 
 const FAKE_CLI = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "testing", "fake-acp-cli.ts");
@@ -45,6 +47,53 @@ describe("GitHub Copilot ACP support", () => {
       ],
     });
     expect(decodeCopilotModelHelp("Usage: copilot")).toBeNull();
+  });
+
+  it("ignores quoted auto in Copilot 1.0.82 prose so discovery uses the fallback catalog", () => {
+    expect(decodeCopilotModelHelp(`
+  --model <model>  Set the AI model to use (use 'auto' to
+                   let Copilot pick automatically)
+  --mouse[=value]  Enable mouse support in alt screen mode
+    `)).toBeNull();
+  });
+
+  it("decodes only the account-specific models advertised by an ACP session", () => {
+    expect(decodeCopilotSessionModels({
+      models: {
+        currentModelId: "gpt-5.6-sol",
+        availableModels: [
+          { modelId: "auto", name: "Auto" },
+          { modelId: "gpt-5.6-sol", name: "GPT-5.6 Sol" },
+          { modelId: "grok-4.6", name: "Grok 4.6" },
+        ],
+      },
+    })).toEqual({
+      default: "gpt-5.6-sol",
+      options: [
+        { id: "auto", label: "Auto" },
+        { id: "gpt-5.6-sol", label: "GPT-5.6 Sol" },
+        { id: "grok-4.6", label: "Grok 4.6" },
+      ],
+    });
+  });
+
+  it("probes Copilot's ACP session model catalog", async () => {
+    ensureDirs();
+    process.env.OMB_EXTRA_PATH = dirname(process.execPath);
+    resetPathCacheForTests();
+    chmodSync(FAKE_CLI, 0o755);
+    const catalog = await probeCopilotAcpModels(FAKE_CLI, {
+      ...process.env,
+      FAKE_ACP_SESSION_MODELS: "auto|Auto,gpt-5.6-sol|GPT-5.6 Sol,grok-4.6|Grok 4.6",
+    });
+    expect(catalog).toEqual({
+      default: "auto",
+      options: [
+        { id: "auto", label: "Auto" },
+        { id: "gpt-5.6-sol", label: "GPT-5.6 Sol" },
+        { id: "grok-4.6", label: "Grok 4.6" },
+      ],
+    });
   });
 
   it("detects token, BYOK, and stored-login metadata without reading a secret", async () => {

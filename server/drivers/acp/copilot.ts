@@ -6,7 +6,7 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 
 import type { ModelCatalog, ProviderErrorCode } from "../../contracts.ts";
-import { execCli } from "../../procs.ts";
+import { execCli, killCliTree, spawnCli } from "../../procs.ts";
 import { createAcpDriver, type AcpSupport } from "./core.ts";
 
 export const STATIC_COPILOT_MODELS: ModelCatalog = {
@@ -25,6 +25,8 @@ export const STATIC_COPILOT_MODELS: ModelCatalog = {
 
 const MODEL_ID = /^[a-z0-9][a-z0-9._:+/-]*$/i;
 const EXEC_TIMEOUT_MS = 8_000;
+const ACP_MODEL_TIMEOUT_MS = 15_000;
+const MODEL_CACHE_TTL_MS = 60_000;
 
 type StoredCopilotUser = Record<string, string>;
 
@@ -43,13 +45,16 @@ function modelLabel(id: string): string {
     .join(" ");
 }
 
-/** Parse the wrapped quoted choices printed beside `copilot --help --model`. */
+/** Parse the wrapped quoted choices printed beside `copilot --help --model`.
+ * Newer CLIs mention quoted 'auto' in prose without publishing a catalog, so
+ * only an explicit `choices:` list is authoritative. */
 export function decodeCopilotModelHelp(text: string): ModelCatalog | null {
   const marker = text.search(/--model\s+<model>/i);
   if (marker < 0) return null;
   const tail = text.slice(marker);
   const nextOption = tail.slice(1).search(/\r?\n\s{2,}--[a-z]/i);
   const block = nextOption < 0 ? tail : tail.slice(0, nextOption + 1);
+  if (!/\bchoices\s*:/i.test(block)) return null;
   const options: ModelCatalog["options"] = [];
   const seen = new Set<string>();
   for (const match of block.matchAll(/["']([^"']+)["']/g)) {
@@ -61,6 +66,101 @@ export function decodeCopilotModelHelp(text: string): ModelCatalog | null {
   }
   if (!options.length) return null;
   return { default: options[0]!.id, options };
+}
+
+/** Decode the account- and policy-specific model list returned by ACP
+ * `session/new`. Unlike CLI help, this excludes models the user cannot use. */
+export function decodeCopilotSessionModels(value: unknown): ModelCatalog | null {
+  if (!value || typeof value !== "object") return null;
+  const models = (value as { models?: unknown }).models;
+  if (!models || typeof models !== "object") return null;
+  const available = (models as { availableModels?: unknown }).availableModels;
+  if (!Array.isArray(available)) return null;
+
+  const options: ModelCatalog["options"] = [];
+  const seen = new Set<string>();
+  for (const entry of available) {
+    if (!entry || typeof entry !== "object") continue;
+    const row = entry as { modelId?: unknown; name?: unknown };
+    const id = typeof row.modelId === "string" ? row.modelId.trim() : "";
+    if (!MODEL_ID.test(id) || seen.has(id)) continue;
+    seen.add(id);
+    const label = typeof row.name === "string" && row.name.trim() ? row.name.trim() : modelLabel(id);
+    options.push({ id, label });
+  }
+  if (!options.length) return null;
+
+  const current = (models as { currentModelId?: unknown }).currentModelId;
+  const defaultId = typeof current === "string" && options.some((option) => option.id === current)
+    ? current
+    : options[0]!.id;
+  return { default: defaultId, options };
+}
+
+/** Ask Copilot's ACP server for the same live catalog used by `/models`. */
+export function probeCopilotAcpModels(
+  cli: string,
+  env: Record<string, string | undefined>,
+  spawnProcess: typeof spawnCli = spawnCli,
+): Promise<ModelCatalog | null> {
+  return new Promise((resolve) => {
+    let child: ReturnType<typeof spawnCli>;
+    try {
+      // SAFETY: env is assembled by the ACP core from process.env and the
+      // instance's string-valued environment overrides.
+      child = spawnProcess(cli, ["--acp"], { env: env as NodeJS.ProcessEnv, stdio: "pipe" });
+    } catch {
+      resolve(null);
+      return;
+    }
+
+    let settled = false;
+    let buffer = "";
+    const finish = (catalog: ModelCatalog | null) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      killCliTree(child);
+      resolve(catalog);
+    };
+    const send = (id: number, method: string, params: Record<string, unknown>) => {
+      child.stdin.write(`${JSON.stringify({ jsonrpc: "2.0", id, method, params })}\n`);
+    };
+    const timer = setTimeout(() => finish(null), ACP_MODEL_TIMEOUT_MS);
+    timer.unref?.();
+
+    child.stdout.setEncoding("utf8");
+    child.stdout.on("data", (chunk: string) => {
+      buffer += chunk;
+      for (;;) {
+        const newline = buffer.indexOf("\n");
+        if (newline < 0) break;
+        const line = buffer.slice(0, newline).trim();
+        buffer = buffer.slice(newline + 1);
+        if (!line) continue;
+        let message: { id?: unknown; result?: unknown; error?: unknown };
+        try {
+          message = JSON.parse(line) as typeof message;
+        } catch {
+          continue;
+        }
+        if (message.id === 1) {
+          if (message.error) finish(null);
+          else send(2, "session/new", { cwd: process.cwd(), mcpServers: [] });
+        } else if (message.id === 2) {
+          finish(message.error ? null : decodeCopilotSessionModels(message.result));
+        }
+      }
+    });
+    child.stderr.on("data", () => {});
+    child.on("error", () => finish(null));
+    child.on("close", () => finish(null));
+
+    send(1, "initialize", {
+      protocolVersion: 1,
+      clientCapabilities: { fs: { readTextFile: false, writeTextFile: false } },
+    });
+  });
 }
 
 function execText(run: typeof execCli, cli: string, args: string[], env: Record<string, string | undefined>) {
@@ -76,7 +176,10 @@ export async function fetchCopilotModels(
   cli: string,
   env: Record<string, string | undefined>,
   run: typeof execCli = execCli,
+  spawnProcess: typeof spawnCli = spawnCli,
 ): Promise<ModelCatalog> {
+  const session = await probeCopilotAcpModels(cli, env, spawnProcess);
+  if (session) return session;
   const help = await execText(run, cli, ["--help"], env);
   const live = help ? decodeCopilotModelHelp(help) : null;
   if (!live) return STATIC_COPILOT_MODELS;
@@ -161,55 +264,65 @@ export function classifyCopilotError(error: CopilotFailure): ProviderErrorCode |
   return undefined;
 }
 
-const support = (run: typeof execCli): AcpSupport => ({
-  driverKind: "copilotAgent",
-  displayName: "Github Copilot cli",
-  models: STATIC_COPILOT_MODELS,
-  defaultCli: "copilot",
-  nativeSource: "copilot.acp",
-  loginNote: "Github Copilot cli is not signed in — run `copilot login` in a terminal",
-  install: {
-    command: {
-      darwin: "brew install --cask copilot-cli",
-      linux: "curl -fsSL https://gh.io/copilot-install | bash",
-      win32: "winget install GitHub.Copilot",
+const support = (run: typeof execCli, spawnProcess: typeof spawnCli): AcpSupport => {
+  const modelCache = new WeakMap<object, { catalog: ModelCatalog; expiresAt: number }>();
+  const resolveModels = async (environment: Record<string, string | undefined>, config: { cli: string }) => {
+    const cachedModels = modelCache.get(config);
+    if (cachedModels && cachedModels.expiresAt > Date.now()) return cachedModels.catalog;
+    const catalog = await fetchCopilotModels(config.cli || "copilot", environment, run, spawnProcess);
+    modelCache.set(config, { catalog, expiresAt: Date.now() + MODEL_CACHE_TTL_MS });
+    return catalog;
+  };
+  return {
+    driverKind: "copilotAgent",
+    displayName: "Github Copilot cli",
+    models: STATIC_COPILOT_MODELS,
+    defaultCli: "copilot",
+    nativeSource: "copilot.acp",
+    loginNote: "Github Copilot cli is not signed in — run `copilot login` in a terminal",
+    install: {
+      command: {
+        darwin: "brew install --cask copilot-cli",
+        linux: "curl -fsSL https://gh.io/copilot-install | bash",
+        win32: "winget install GitHub.Copilot",
+      },
+      docsUrl: "https://docs.github.com/copilot/how-tos/copilot-cli/set-up-copilot-cli/install-copilot-cli",
+      signInCommand: "copilot login",
     },
-    docsUrl: "https://docs.github.com/copilot/how-tos/copilot-cli/set-up-copilot-cli/install-copilot-cli",
-    signInCommand: "copilot login",
-  },
-  resolveModels: (environment, config) => fetchCopilotModels(config.cli || "copilot", environment, run),
-  spawnArgs: (config, turn) => [
-    ...(config.fullAuto ? ["--allow-all"] : []),
-    ...(turn.model ? ["--model", turn.model] : []),
-    "--acp",
-  ],
-  credentialEnv: ["COPILOT_GITHUB_TOKEN", "GH_TOKEN", "GITHUB_TOKEN", "COPILOT_PROVIDER_API_KEY"],
-  pickAuthMethod: () => null,
-  authFailure: "continue",
-  isAuthenticated: (env) => copilotIsAuthenticated(env, run),
-  classifyError: (error) => {
-    // SAFETY: classification only stringifies the value and reads Error fields;
-    // arbitrary thrown values fit this deliberately closed adapter.
-    return classifyCopilotError(error as CopilotFailure);
-  },
-  async configureSession({ request, sessionId, turn }) {
-    if (!turn.model) return;
-    try {
-      await request("session/set_model", { sessionId, modelId: turn.model });
-    } catch (error) {
-      // SAFETY: core.ts rejects ACP requests with Error objects; JSON-RPC
-      // errors attach an optional numeric code to that Error.
-      const err = error as Error & { code?: unknown };
-      // argv already pins the model on CLIs without this optional ACP method.
-      if (err.code === -32601 || err.code === -32602) return;
-      throw error;
-    }
-  },
-  buildPromptText: (turn) => (turn.system ? `${turn.system}\n\n${turn.text}` : turn.text),
-});
+    resolveModels,
+    spawnArgs: (config, turn) => [
+      ...(config.fullAuto ? ["--allow-all"] : []),
+      ...(turn.model ? ["--model", turn.model] : []),
+      "--acp",
+    ],
+    credentialEnv: ["COPILOT_GITHUB_TOKEN", "GH_TOKEN", "GITHUB_TOKEN", "COPILOT_PROVIDER_API_KEY"],
+    pickAuthMethod: () => null,
+    authFailure: "continue",
+    isAuthenticated: (env) => copilotIsAuthenticated(env, run),
+    classifyError: (error) => {
+      // SAFETY: classification only stringifies the value and reads Error fields;
+      // arbitrary thrown values fit this deliberately closed adapter.
+      return classifyCopilotError(error as CopilotFailure);
+    },
+    async configureSession({ request, sessionId, turn }) {
+      if (!turn.model) return;
+      try {
+        await request("session/set_model", { sessionId, modelId: turn.model });
+      } catch (error) {
+        // SAFETY: core.ts rejects ACP requests with Error objects; JSON-RPC
+        // errors attach an optional numeric code to that Error.
+        const err = error as Error & { code?: unknown };
+        // argv already pins the model on CLIs without this optional ACP method.
+        if (err.code === -32601 || err.code === -32602) return;
+        throw error;
+      }
+    },
+    buildPromptText: (turn) => (turn.system ? `${turn.system}\n\n${turn.text}` : turn.text),
+  };
+};
 
-export function createCopilotAgentDriver(run: typeof execCli = execCli) {
-  return createAcpDriver(support(run));
+export function createCopilotAgentDriver(run: typeof execCli = execCli, spawnProcess: typeof spawnCli = spawnCli) {
+  return createAcpDriver(support(run, spawnProcess));
 }
 
 export const CopilotAgentDriver = createCopilotAgentDriver();
