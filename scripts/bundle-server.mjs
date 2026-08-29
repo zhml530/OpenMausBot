@@ -45,12 +45,9 @@ const ENTRY_POINTS = [
   // shared avatar contract widens TypeScript's inferred emit root to the repo,
   // so tsc may place its copy under dist-server/server/. Bundle an explicit
   // root sibling to keep the packaged runtime contract stable. The Linux
-  // package smoke probe also imports local-computer.js directly.
+  // package smoke probe imports this manifest directly.
   "proxy-paths.ts",
-  "local-computer.ts",
   "computer-proxy.ts",
-  "container-mcp.ts",
-  "vps-container-mcp.ts",
   "permission-proxy.ts",
   "connector-proxy.ts",
   "drivers/agents-proxy.ts",

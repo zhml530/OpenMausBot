@@ -91,27 +91,6 @@ describe("buildMcpServers", () => {
     });
   });
 
-  it("passes a local computer (Cua/VPS) through as a direct stdio server", () => {
-    const servers = buildMcpServers({
-      threadId: "t",
-      text: "hi",
-      integrations: {
-        localComputer: { command: "node", args: ["mcp"], env: { X: "y" } },
-      },
-    });
-    expect(servers?.computer).toEqual({ command: "node", args: ["mcp"], env: { X: "y" } });
-  });
-
-  it("marks a host computer with scope so the extension gates its tools", () => {
-    const servers = buildMcpServers({
-      threadId: "t",
-      text: "hi",
-      integrations: {
-        localComputer: { command: "node", args: ["mcp"], env: {}, scope: "local-computer" },
-      },
-    });
-    expect(servers?.computer).toMatchObject({ scope: "local-computer" });
-  });
 });
 
 describe("PiDriver config + install", () => {

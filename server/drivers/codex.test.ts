@@ -223,33 +223,6 @@ describe("CodexDriver turns (fake app-server)", () => {
     expect(instance.adapter.capabilities.agentsMcp).toBe(true);
   });
 
-  it("mounts the Local VM computer MCP server without placing credentials in argv", async () => {
-    await create();
-    const dump = join(scratch, "local-computer.json");
-    process.env.FAKE_CODEX_DUMP = dump;
-    expect(instance.adapter.capabilities.computerMcp).toBe(true);
-
-    await instance.adapter.sendTurn({
-      threadId: "t-local-computer",
-      text: "open the browser",
-      integrations: {
-        localComputer: {
-          command: process.execPath,
-          args: ["/tmp/container-mcp.js", "podman", "Roundtable-computer", "/run/cua.sock"],
-          env: { ELECTRON_RUN_AS_NODE: "1", OMB_VM_TOKEN: "vm-secret" },
-        },
-      },
-    });
-    await recorder.until((event) => event.type === "turn.completed");
-
-    const seen = JSON.parse(readFileSync(dump, "utf8"));
-    expect(seen.argv.join(" ")).toContain("mcp_servers.computer.command");
-    expect(seen.argv.join(" ")).toContain("/tmp/container-mcp.js");
-    expect(seen.argv.join(" ")).toContain("OMB_VM_TOKEN");
-    expect(seen.argv.join(" ")).not.toContain("vm-secret");
-    expect(seen.env.OMB_VM_TOKEN).toBe("vm-secret");
-  });
-
   it("mounts the remote computer proxy without placing its token in argv", async () => {
     await create();
     const dump = join(scratch, "remote-computer.json");
@@ -369,37 +342,6 @@ describe("CodexDriver turns (fake app-server)", () => {
     await instance.adapter.respondToRequest("t-mcp-elicitation", opened.requestId!, { behavior: "allow" });
     await recorder.until((e) => e.type === "turn.completed");
     expect(JSON.parse(readFileSync(dump, "utf8")).decision).toEqual({ action: "accept", content: {} });
-  });
-
-  it("stamps approvalScope on cards only when the turn controls this Mac", async () => {
-    await create({ mode: "approval" });
-
-    // host-mounted: every card carries the scope that keeps the harness's
-    // local-computer-block backstop in force for remembered always-allows
-    await instance.adapter.sendTurn({
-      threadId: "t-host-scope",
-      text: "clean up",
-      integrations: {
-        localComputer: { command: "/cua-driver", args: ["mcp"], env: {}, platform: "darwin", scope: "local-computer" },
-      },
-    });
-    const host = await recorder.until((e) => e.type === "request.opened");
-    expect(host).toMatchObject({ approvalScope: "local-computer" });
-    await instance.adapter.respondToRequest("t-host-scope", host.requestId!, { behavior: "allow" });
-    await recorder.until((e) => e.type === "turn.completed");
-
-    // a Local VM mount is not the host: no scope stamped
-    await instance.adapter.sendTurn({
-      threadId: "t-vm-scope",
-      text: "clean up",
-      integrations: {
-        localComputer: { command: process.execPath, args: ["/tmp/container-mcp.js"], env: {} },
-      },
-    });
-    const vm = await recorder.until((e) => e.type === "request.opened" && e.threadId === "t-vm-scope");
-    expect((vm as { approvalScope?: string }).approvalScope).toBeUndefined();
-    await instance.adapter.respondToRequest("t-vm-scope", vm.requestId!, { behavior: "allow" });
-    await recorder.until((e) => e.type === "turn.completed" && e.threadId === "t-vm-scope");
   });
 
   it("auto-approves commands in fullAuto without opening a request", async () => {

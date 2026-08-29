@@ -1,29 +1,31 @@
 ---
 title: Give a bot a computer
-description: Choose the right desktop or isolated environment for a task.
+description: Use a Box cloud desktop or turn computer access off.
 icon: Monitor
 ---
 
-A bot can work without a computer, use the computer running Roundtable, or work inside an isolated desktop.
+A bot can use an isolated Box cloud desktop or work with computer access turned off.
 
-<ProductScreenshot name="docs-computer-panel" alt="Roundtable computer panel offering cloud, local VM, host computer, and off modes" caption="Computer placement is explicit per bot and can be changed without changing its model." />
+<ProductScreenshot name="docs-computer-panel" alt="Roundtable computer panel offering Box and Off modes" caption="Computer access is explicit per bot and can be changed without changing its model." />
 
 | Backend | Isolation | Best for |
 |---|---|---|
-| This computer | None | Working with local apps and files you explicitly approve |
-| Local VM | Containerized desktop | Repeatable browser and desktop work on your machine |
 | Box cloud computer | Hosted remote desktop | Always-available isolated Linux work |
-| Self-hosted VPS | Hardened container over SSH | Using infrastructure you own |
+| Off | None | Work that does not need browser or desktop tools |
 
-## Auto, local, and cloud selection
+## Box and Off
 
-Computer selection is explicit per bot. Auto may reuse a ready, verified backend, but it does not silently provision every backend or turn on host control.
+Computer selection is explicit per bot. Choose **Box** for browser and desktop tasks, or **Off** when the bot does not need computer tools.
 
 ## Preview and takeover
 
-The Computer panel can show live frames while an agent works. Supported cloud desktops also provide an interactive viewer. Roundtable opens that viewer in the app when possible, with a browser fallback for external join flows.
+The Computer panel can show live frames while a bot works in Box. Box also provides an interactive desktop viewer so you can temporarily take control. Roundtable opens that viewer in the app when possible, with a browser fallback for external join flows.
 
-<Callout type="warn" title="Preview is not permission">
-  Starting a screen preview does not grant the bot control. Local input requires a separate opt-in and remains subject to the computer-use safety boundary.
+<Callout type="info" title="Local preview is view-only">
+  The separate preview of the computer running Roundtable is user-initiated and view-only. It does not give a bot control of the desktop.
 </Callout>
+
+## Android devices
+
+A supported bot can inspect and operate a USB-connected Android device through the Phone Harness skill. See [USB Android control](../mobile/android-control.mdx) for requirements.
 

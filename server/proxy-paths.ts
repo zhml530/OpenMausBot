@@ -12,7 +12,7 @@
 // /api/health stayed perfectly green and the packaging checks passed.
 //
 // This file sits at the server root and is only ever inlined into entries that
-// also sit at the server root (index, computer-proxy, container-mcp) — the
+// also sit at the server root (index, computer-proxy) — the
 // nested drivers/* entries import nothing local, which is what keeps the
 // anchor correct in both the dev tree and the bundle. proxy-paths.test.ts pins
 // that invariant. Resolve proxies through SPAWNED_PROXIES and nowhere else.
@@ -36,8 +36,6 @@ export function resolveProxy(relative: string): string {
 export const SPAWNED_PROXIES = {
   computer: resolveProxy("computer-proxy"),
   permission: resolveProxy("permission-proxy"),
-  containerMcp: resolveProxy("container-mcp"),
-  vpsContainerMcp: resolveProxy("vps-container-mcp"),
   agents: resolveProxy("drivers/agents-proxy"),
   dweb: resolveProxy("drivers/dweb-proxy"),
   connectors: resolveProxy("connector-proxy"),

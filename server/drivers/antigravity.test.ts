@@ -234,12 +234,7 @@ describe("Antigravity computer MCP config", () => {
     });
   });
 
-  it("passes a Local VM / VPS stdio connection through unchanged, and yields null without a computer", () => {
-    expect(
-      antigravityComputerMcpServer({
-        localComputer: { command: "/opt/cua", args: ["--mcp"], env: { CUA_SOCKET: "/tmp/cua.sock" } },
-      }),
-    ).toEqual({ command: "/opt/cua", args: ["--mcp"], env: { CUA_SOCKET: "/tmp/cua.sock" } });
+  it("yields null without a computer", () => {
     expect(antigravityComputerMcpServer({})).toBeNull();
     expect(antigravityComputerMcpServer(undefined)).toBeNull();
   });
@@ -263,11 +258,11 @@ describe("Antigravity computer MCP config", () => {
 
       // A later turn on a different computer overwrites the key in place.
       ensureAntigravityComputerMcp(
-        { command: "/opt/cua", args: ["--mcp"], env: { CUA_SOCKET: "/tmp/cua.sock" } },
+        { command: "/opt/computer-control", args: ["--mcp"], env: { COMPUTER_SOCKET: "/tmp/computer.sock" } },
         { HOME: home },
       );
       config = readConfig(home);
-      expect(config.mcpServers[ANTIGRAVITY_COMPUTER_MCP_KEY].command).toBe("/opt/cua");
+      expect(config.mcpServers[ANTIGRAVITY_COMPUTER_MCP_KEY].command).toBe("/opt/computer-control");
       expect(config.mcpServers["sqlite-helper"]).toEqual({ command: "sqlite-mcp-server", args: ["/db"] });
       expect(config.futureTopLevelKey).toEqual({ keep: true });
     } finally {
@@ -365,7 +360,7 @@ describe("Antigravity computer MCP config", () => {
     }
   });
 
-  it("advertises computerMcp only on full-auto instances, and never localComputerMcp", async () => {
+  it("advertises computerMcp only on full-auto instances", async () => {
     const fullAuto = await AntigravityDriver.create({
       instanceId: "agy-caps-full",
       displayName: undefined,
@@ -385,10 +380,6 @@ describe("Antigravity computer MCP config", () => {
       // accept-edits print mode auto-denies tools that would prompt, so a
       // mount there could never fire — the capability must not be offered.
       expect(acceptEdits.adapter.capabilities.computerMcp).toBe(false);
-      // The host desktop needs per-action human approval; print mode has no
-      // approval channel in any mode.
-      expect(fullAuto.adapter.capabilities.localComputerMcp).toBeUndefined();
-      expect(acceptEdits.adapter.capabilities.localComputerMcp).toBeUndefined();
     } finally {
       await fullAuto.dispose();
       await acceptEdits.dispose();

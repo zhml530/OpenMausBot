@@ -41,7 +41,6 @@ export interface OptionCardData {
   held?: string;
   /** the narrow grant "always allow" remembers, e.g. "Bash:git" */
   allowKey?: string;
-  approvalScope?: "local-computer";
 }
 
 export interface ConnectorCardData {
@@ -192,8 +191,6 @@ export interface Bot {
   computer?: "cloud" | "vm" | "local" | "off";
   /** Which cloud computer backs `computer: "cloud"`; absent means Box. */
   cloudBackend?: CloudBackend;
-  /** Allow Auto to prepare/start the managed VPS container. Off by default. */
-  autoStartVps?: boolean;
   /** where new tasks run their shell tools; absent = the private bot workspace */
   cwd?: string;
   /** auto mode: the bot approves its own tool permissions */
@@ -255,9 +252,7 @@ export interface ConfigStatus {
   xai?: { configured: boolean };
   composio: { configured: boolean; mode?: "managed" | "self-hosted" | "unavailable" };
   box: { configured: boolean };
-  vps: { configured: boolean; sshAlias: string };
   rooms: { turnTimeoutMinutes: number };
-  localVm: { mode: "shared" | "per-bot"; maxInstances: number };
   opencodeGo?: { configured: boolean };
   /** Voice (ElevenLabs). `configured` = a key is saved; `ready` = a key AND
    * a voice, which is what it takes to actually speak. The key itself is
@@ -273,7 +268,7 @@ export interface ConfigStatus {
 
 export type ConfigStatusFrame = Pick<
   ConfigStatus,
-  "xai" | "composio" | "box" | "vps" | "rooms" | "localVm" | "opencodeGo" | "tts" | "imageGen" | "profile" | "features"
+  "xai" | "composio" | "box" | "rooms" | "opencodeGo" | "tts" | "imageGen" | "profile" | "features"
 >;
 
 export function configStatusFromFrame(frame: ConfigStatusFrame): ConfigStatus {
@@ -281,9 +276,7 @@ export function configStatusFromFrame(frame: ConfigStatusFrame): ConfigStatus {
     xai: frame.xai,
     composio: frame.composio,
     box: frame.box,
-    vps: frame.vps,
     rooms: frame.rooms,
-    localVm: frame.localVm,
     opencodeGo: frame.opencodeGo,
     tts: frame.tts,
     imageGen: frame.imageGen,
@@ -324,7 +317,6 @@ export interface InstanceInfo {
     effortLevels?: readonly EffortLevel[];
     /** the engine keeps a live session and takes a message mid-turn */
     queueing?: boolean;
-    localComputerMcp?: boolean;
   };
   /** `custom` agents sit below the rail divider — no subscription catalog. */
   access?: "subscription" | "custom";
@@ -949,8 +941,7 @@ export function reducer(state: AppState, action: Action): AppState {
             ),
           }
         : animated;
-      const { acknowledgeLocalAuto: _ack, ...botPatch } = action.patch;
-      return updateBot(next, action.botId, (b) => ({ ...b, ...botPatch }));
+      return updateBot(next, action.botId, (b) => ({ ...b, ...action.patch }));
     }
     case "threadActive": {
       const bot = state.bots.find((b) => b.threadId === action.threadId);
@@ -1369,8 +1360,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             notifications: source.notifications,
             modelSelection: source.modelSelection,
             computer: source.computer,
-            cloudBackend: source.cloudBackend,
-            autoStartVps: source.autoStartVps,
             avatarUrl: source.avatarUrl,
             avatarCrop: source.avatarCrop,
           };

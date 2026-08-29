@@ -50,9 +50,7 @@ describe("config status frames", () => {
         xai: { configured: true },
         composio: { configured: true, mode: "managed" },
         box: { configured: false },
-        vps: { configured: true, sshAlias: "homelab" },
         rooms: { turnTimeoutMinutes: 20 },
-        localVm: { mode: "per-bot", maxInstances: 3 },
         opencodeGo: { configured: true },
         tts: { configured: true, ready: true, voice: "Ada" },
         profile: { name: "Ian", email: "ian@example.test" },
@@ -62,9 +60,7 @@ describe("config status frames", () => {
       xai: { configured: true },
       composio: { configured: true, mode: "managed" },
       box: { configured: false },
-      vps: { configured: true, sshAlias: "homelab" },
       rooms: { turnTimeoutMinutes: 20 },
-      localVm: { mode: "per-bot", maxInstances: 3 },
       opencodeGo: { configured: true },
       tts: { configured: true, ready: true, voice: "Ada" },
       profile: { name: "Ian", email: "ian@example.test" },
@@ -77,9 +73,7 @@ describe("Teach a skill feature flag", () => {
   const config = configStatusFromFrame({
     composio: { configured: false },
     box: { configured: false },
-    vps: { configured: false, sshAlias: "" },
     rooms: { turnTimeoutMinutes: 5 },
-    localVm: { mode: "shared", maxInstances: 2 },
     features: { skillRecorder: true },
   });
 

@@ -9,7 +9,6 @@ import { requestNotificationPermission } from "@/lib/notify";
 import { botUsage, costCaption, formatTokens, formatUsd, hasFiniteCost } from "@/lib/usage";
 import { shortPath } from "@/lib/short-path";
 import { BotProfileAvatarCard } from "./BotProfileAvatarCard";
-import { LocalComputerAutoWarning } from "./LocalComputerAutoWarning";
 import { BOT_PROFILE_LIMITS } from "../../shared/bot-profile";
 
 function Field({
@@ -313,7 +312,6 @@ function MemoryCard({ bot }: { bot: Bot }) {
 
 export function SettingsPanel({ bot }: { bot: Bot }) {
   const { state, dispatch } = useStore();
-  const [localAutoWarning, setLocalAutoWarning] = useState(false);
   const patch = (
     p: Partial<
       Pick<
@@ -334,7 +332,7 @@ export function SettingsPanel({ bot }: { bot: Bot }) {
         | "composio"
         | "modelSelection"
       >
-    > & { acknowledgeLocalAuto?: boolean },
+    >,
   ) => dispatch({ type: "updateBot", botId: bot.id, patch: p });
   const activeState = stateForBot(bot);
   const mascotMotion = state.mascotMotion?.botId === bot.id ? state.mascotMotion : null;
@@ -590,11 +588,7 @@ export function SettingsPanel({ bot }: { bot: Bot }) {
             <div>
               <div className="text-[15px] font-medium text-ink">Auto mode</div>
               <div className="mt-0.5 text-[13px] text-ink-secondary">
-                {bot.computer === "local"
-                  ? bot.autoApprove
-                    ? "Keeps going on this computer — you'll still be asked about anything destructive, and about questions it asks you."
-                    : "Approve each action on this computer yourself. Turn on to let this bot keep working without stopping to ask."
-                  : bot.autoApprove
+                {bot.autoApprove
                   ? "Keeps going on its own — you'll still be asked about anything destructive, and about questions it asks you."
                   : "Approve each action yourself. Turn on to let this bot keep working without stopping to ask."}
               </div>
@@ -603,10 +597,7 @@ export function SettingsPanel({ bot }: { bot: Bot }) {
               role="switch"
               aria-checked={Boolean(bot.autoApprove)}
               aria-label="Auto mode"
-              onClick={() => {
-                if (!bot.autoApprove && bot.computer === "local") setLocalAutoWarning(true);
-                else patch({ autoApprove: !bot.autoApprove });
-              }}
+              onClick={() => patch({ autoApprove: !bot.autoApprove })}
               className={cn(
                 "relative h-[26px] w-[44px] shrink-0 rounded-full transition-colors",
                 bot.autoApprove ? "bg-accent" : "bg-control",
@@ -655,14 +646,6 @@ export function SettingsPanel({ bot }: { bot: Bot }) {
         </div>
       </div>
     </aside>
-    <LocalComputerAutoWarning
-      open={localAutoWarning}
-      onCancel={() => setLocalAutoWarning(false)}
-      onConfirm={() => {
-        patch({ autoApprove: true, acknowledgeLocalAuto: true });
-        setLocalAutoWarning(false);
-      }}
-    />
     </>
   );
 }

@@ -12,7 +12,7 @@
 import { homedir } from "node:os";
 
 import { stripWorkspaceCredentialEnv } from "../config.ts";
-import { computerProxyEnv } from "../container-computer.ts";
+import { computerProxyEnv } from "../computer-proxy-env.ts";
 import { describeSpawnFailure, execCli, killCliTree, spawnCli } from "../procs.ts";
 import { SPAWNED_PROXIES } from "../proxy-paths.ts";
 
@@ -164,19 +164,9 @@ export const CodexDriver: ProviderDriver<CodexConfig> = {
             args: [SPAWNED_PROXIES.computer],
             env: {
               ELECTRON_RUN_AS_NODE: "1",
-              OGB_BOX_ID: proxyEnv.OGB_BOX_ID ?? "",
-              OGB_BOX_TOKEN: proxyEnv.OGB_BOX_TOKEN ?? "",
-              // who-is-driving endpoint, so a person taking the wheel in the
-              // panel pauses this bot's hands mid-turn
-              OMB_CONTROL_PIPE: proxyEnv.OMB_CONTROL_PIPE ?? "",
-              OMB_CONTROL_PATH: proxyEnv.OMB_CONTROL_PATH ?? "",
-              OMB_CONTROL_TOKEN: proxyEnv.OMB_CONTROL_TOKEN ?? "",
+              ...proxyEnv,
             },
           });
-        } else if (turn.integrations?.localComputer) {
-          // The host daemon and isolated Local VM both arrive as a direct Cua
-          // Driver stdio MCP server. Codex sees the same computer tool surface.
-          mountMcpServer(appServerArgs, env, "computer", turn.integrations.localComputer);
         }
         if (turn.integrations?.phone) {
           const bridge = turn.integrations.phone;
@@ -255,10 +245,6 @@ export const CodexDriver: ProviderDriver<CodexConfig> = {
       };
 
       // server→client approval request → canonical request.opened
-      // Host-scope tagging mirrors claude.ts: when this turn mounts the real
-      // Mac (not a VM), every card carries approvalScope so the harness's
-      // local-computer-block backstop applies to remembered always-allows.
-      const controlsHost = turn.integrations?.localComputer?.scope === "local-computer";
       const handleServerRequest = (msg: any) => {
         const method = msg.method as string;
         const params = msg.params ?? {};
@@ -337,7 +323,6 @@ export const CodexDriver: ProviderDriver<CodexConfig> = {
           tool,
           summary,
           choices,
-          approvalScope: controlsHost ? "local-computer" : undefined,
         });
       };
 
@@ -614,7 +599,6 @@ export const CodexDriver: ProviderDriver<CodexConfig> = {
       capabilities: {
         sessionModelSwitch: "unsupported",
         computerMcp: true,
-        localComputerMcp: true,
         composioMcp: true,
         agentsMcp: true,
         phoneMcp: true,

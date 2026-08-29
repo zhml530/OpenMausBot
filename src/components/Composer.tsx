@@ -6,7 +6,6 @@ import { cn } from "@/lib/cn";
 import { useComposerDraft } from "@/lib/drafts";
 import { MausAvatar } from "./Avatar";
 import { ComposerAttachments, pathForFile } from "./ComposerAttachments";
-import { LocalComputerAutoWarning } from "./LocalComputerAutoWarning";
 import {
   composeMessage,
   imageAttachmentFromFile,
@@ -266,7 +265,6 @@ export function Composer({
       : undefined;
   // a chip on its own is a message: the send control has to appear for it
   const fileInput = useRef<HTMLInputElement>(null);
-  const [autoWarn, setAutoWarn] = useState(false);
   const [attachmentNotice, setAttachmentNotice] = useState<string | null>(null);
   // Auto mode belongs to one bot; a room has several, each with its own.
   const autoBot = group ? undefined : bot;
@@ -284,14 +282,6 @@ export function Composer({
   };
   const setAuto = (auto: boolean) => {
     if (!autoBot) return;
-    // Turning it on for a bot that drives THIS computer is the one case that
-    // has to be acknowledged first. The flag the dialog sends is stripped by
-    // the reducer rather than stored, so — exactly like the settings panel —
-    // the warning is shown on every switch-on, not just the first.
-    if (auto && !autoBot.autoApprove && autoBot.computer === "local") {
-      setAutoWarn(true);
-      return;
-    }
     dispatch({ type: "updateBot", botId: autoBot.id, patch: { autoApprove: auto } });
   };
 
@@ -643,20 +633,6 @@ export function Composer({
           </div>
         </div>
       </div>
-      <LocalComputerAutoWarning
-        open={autoWarn}
-        onCancel={() => setAutoWarn(false)}
-        onConfirm={() => {
-          if (autoBot) {
-            dispatch({
-              type: "updateBot",
-              botId: autoBot.id,
-              patch: { autoApprove: true, acknowledgeLocalAuto: true },
-            });
-          }
-          setAutoWarn(false);
-        }}
-      />
     </div>
   );
 }

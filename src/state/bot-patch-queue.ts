@@ -10,7 +10,6 @@ export type BotUpdatePatch = Partial<
     | "notifications"
     | "computer"
     | "cloudBackend"
-    | "autoStartVps"
     | "color"
     | "mascotExpression"
     | "avatarUrl"
@@ -27,13 +26,7 @@ export type BotUpdatePatch = Partial<
     | "composio"
     | "modelSelection"
   >
-> & {
-  /** Rides the PATCH body only: the server's proof that the local-auto
-   * warning dialog was shown (see server/index.ts's consent gate). It must
-   * reach the wire inside the coalesced body and must never fold into bot
-   * state — the queue strips it from every overlay it hands back. */
-  acknowledgeLocalAuto?: boolean;
-};
+>;
 
 interface BotPatchQueueEntry {
   botId: string;
@@ -73,13 +66,6 @@ export interface BotPatchQueue {
 
 const hasFields = (patch: BotUpdatePatch): boolean => Object.keys(patch).length > 0;
 
-/** What may fold back into renderer bot state: everything except the consent
- * flag, which is wire-only. One strip point covers both overlay paths. */
-const stateOverlay = (patch: BotUpdatePatch): BotUpdatePatch => {
-  const { acknowledgeLocalAuto: _ack, ...fields } = patch;
-  return fields;
-};
-
 /**
  * A per-bot mutation lane: edits debounce together, requests never overtake
  * one another, and every response/error is folded back from an authoritative
@@ -109,7 +95,7 @@ export function createBotPatchQueue(options: BotPatchQueueOptions): BotPatchQueu
       const bot = await options.send(entry.botId, patch, controller.signal);
       if (disposed || entry.cancelled) return;
       entry.fallback = bot;
-      options.onAuthoritative(bot, stateOverlay(entry.pending));
+      options.onAuthoritative(bot, entry.pending);
     } catch (caught) {
       if (!disposed && !entry.cancelled) {
         // A rejected patch is no longer optimistic. Re-read before rolling back
@@ -126,7 +112,7 @@ export function createBotPatchQueue(options: BotPatchQueueOptions): BotPatchQueu
         // Deletion may cancel this lane while the re-read is in flight. Folding
         // that result back into state would resurrect the deleted bot.
         if (disposed || entry.cancelled) return;
-        if (bot) options.onAuthoritative(bot, stateOverlay(entry.pending));
+        if (bot) options.onAuthoritative(bot, entry.pending);
         options.onError(caught instanceof Error ? caught : new Error(String(caught)));
       }
     } finally {
@@ -182,7 +168,7 @@ export function createBotPatchQueue(options: BotPatchQueueOptions): BotPatchQueu
 
     overlayFor(botId) {
       const entry = entries.get(botId);
-      return entry ? stateOverlay({ ...entry.inFlight, ...entry.pending }) : {};
+      return entry ? { ...entry.inFlight, ...entry.pending } : {};
     },
 
     cancel(botId) {

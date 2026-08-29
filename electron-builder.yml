@@ -22,10 +22,6 @@ directories:
   buildResources: build
   output: release
 
-# electron-builder makes copied directories group-writable by default. The
-# Linux CUA trust boundary requires root-owned package ancestors to be 0755.
-afterPack: ./scripts/after-pack.mjs
-
 # The app is three self-contained pieces, none needing node_modules at
 # runtime: the Electron main/preload (plain .mjs/.cjs), the built UI
 # (Vite → ui/), and the compiled harness server (tsc → server/), both
@@ -84,18 +80,10 @@ mac:
       to: Roundtable Speech.app
     - from: electron/resources/Roundtable Recorder.app
       to: Roundtable Recorder.app
-    # CUA must live outside ASAR. prepare-cua stages the signed executable and
-    # a self-contained JS/native SDK bundle selected for macOS arm64.
-    # ${arch} resolves per built arch — each bundle carries its own natives
-    - from: dist-native/${arch}/cua-driver
-      to: cua-driver
-    - from: dist-native/${arch}/cua-sdk
-      to: cua-sdk
   extendInfo:
     NSMicrophoneUsageDescription: Roundtable uses the microphone for voice dictation into the composer.
     NSSpeechRecognitionUsageDescription: Roundtable transcribes your voice on-device to type messages for you.
-    NSAccessibilityUsageDescription: Roundtable uses Accessibility when you let a bot control this Mac.
-    NSScreenCaptureUsageDescription: Roundtable uses Screen Recording so bots can see this Mac before acting.
+    NSScreenCaptureUsageDescription: Roundtable uses Screen Recording for the view-only screen preview.
   # Notarization runs manually after the build (notarytool + staple),
   # mirroring the BlueyLite ship_release.sh flow.
   notarize: false
@@ -149,11 +137,6 @@ linux:
   maintainer: Milind Soni <46266943+milind-soni@users.noreply.github.com>
   vendor: Roundtable
   syncDesktopName: true
-  # The reviewed x64 CLI runtime is staged before packaging and remains
-  # outside ASAR so executable modes and adjacent sidecars are preserved.
-  extraResources:
-    - from: dist-native/cua-linux-x64
-      to: cua-linux-x64
   desktop:
     entry:
       Name: Roundtable
@@ -163,9 +146,6 @@ linux:
 deb:
   packageCategory: utils
   priority: optional
-  # dpkg can preserve legacy directory modes during an upgrade. This
-  # idempotent hook repairs only the exact package-owned CUA path.
-  afterInstall: build/linux-after-install.sh
 
 # Static AppImage runtime: Ubuntu 24.04 can launch it without legacy FUSE 2.
 toolsets:

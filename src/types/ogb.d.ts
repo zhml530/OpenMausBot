@@ -79,19 +79,6 @@ type SkillRecordingPayload = {
       onDevice: boolean;
       reasonCode?: string;
     };
-    localComputer: {
-      available: boolean;
-      support: "supported" | "limited" | "unsupported";
-      enabled: boolean;
-      status: "disabled" | "checking" | "starting" | "ready" | "error" | "stopped" | "unavailable";
-      reasonCode?: string;
-      message?: string;
-      driverPath?: string;
-      driverVersion?: string;
-      driverSource?: "bundled" | "environment" | "user-local" | "path";
-      session?: "x11" | "wayland" | "headless" | "unknown";
-      compositor?: "gnome-mutter";
-    };
   };
 
   interface Window {
@@ -109,12 +96,6 @@ type SkillRecordingPayload = {
       setTitleBarTheme(colors: { background: string; symbols: string }): void;
       getCapabilities(): Promise<DesktopCapabilities>;
       onCapabilitiesChanged(cb: (capabilities: DesktopCapabilities) => void): () => void;
-      localControl: {
-        status(): Promise<LinuxLocalControlStatus>;
-        enable(): Promise<LinuxLocalControlStatus>;
-        disable(): Promise<LinuxLocalControlStatus>;
-        retry(): Promise<LinuxLocalControlStatus>;
-      };
       /** Arms one user-initiated display capture request from this frame. */
       beginScreenPreviewIntent(): boolean;
       screenFrame(): Promise<string | null>;
@@ -196,19 +177,6 @@ type SkillRecordingPayload = {
       };
     };
   }
-}
-
-export interface LinuxLocalControlStatus {
-  enabled: boolean;
-  status: "disabled" | "checking" | "starting" | "ready" | "error" | "stopped" | "unavailable";
-  reasonCode?: string;
-  message?: string;
-  driverPath?: string;
-  driverVersion?: string;
-  driverSource?: "bundled" | "environment" | "user-local" | "path";
-  session?: "x11" | "wayland" | "headless" | "unknown";
-  compositor?: "gnome-mutter";
-  warnings?: Array<{ label: string; status: string; message: string; detail?: string }>;
 }
 
 export interface UpdaterState {

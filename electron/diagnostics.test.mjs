@@ -61,7 +61,7 @@ describe("buildDiagnosticsReport", () => {
       configSummary: {
         xai: { key: "xai-real-secret" },
         composio: { apiKey: "ak_live_abcdef123456789" },
-        vps: { sshAlias: "" },
+        retiredIntegration: { endpoint: "" },
         profile: { name: "Ada" },
         instances: [{ driver: "claudeAgent", environment: { TOKEN: "hunter2" } }],
         note: "sk-ant-api03-abcdefghijklmnopqrstuvwxyz",

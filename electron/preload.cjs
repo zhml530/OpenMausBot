@@ -28,12 +28,6 @@ contextBridge.exposeInMainWorld("ogb", {
     ipcRenderer.on("desktop:capabilities-changed", handler);
     return () => ipcRenderer.removeListener("desktop:capabilities-changed", handler);
   },
-  localControl: {
-    status: () => ipcRenderer.invoke("cua:linux-status"),
-    enable: () => ipcRenderer.invoke("cua:linux-enable"),
-    disable: () => ipcRenderer.invoke("cua:linux-disable"),
-    retry: () => ipcRenderer.invoke("cua:linux-retry"),
-  },
   /** Arms exactly one display-media request from the current renderer frame. */
   beginScreenPreviewIntent: () => ipcRenderer.sendSync("screen:preview-intent"),
   /** One frame of this computer's screen as a data: URL when supported. */

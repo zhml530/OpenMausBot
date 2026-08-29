@@ -2,8 +2,8 @@
 // who is driving (server/computer-control.ts); the per-turn computer
 // processes consult it through this client before acting, because the
 // action paths themselves never traverse the harness — a box click goes
-// straight to the box's REST API, and a Local VM / VPS click rides a
-// transparent stdio bridge into Cua Driver.
+// straight to the box's REST API, while bridge-backed computers use a
+// transparent stdio control channel.
 //
 // Failure posture: OPEN. Control is cooperation between the person and
 // their own bot — "hold my hands while you're driving" — not a security
@@ -140,8 +140,7 @@ export const CONTROL_REFUSAL =
   "Call computer_request_help (no reason needed) to wait for them to finish, " +
   "then take a fresh screenshot before your next action.";
 
-/** The bridge-gated computers (Local VM, VPS) speak Cua Driver's own tool
- * surface, which has no wait tool to point at — so the guidance is to
+/** Bridge-backed computers have no wait tool to point at, so the guidance is to
  * pause, not to call anything. */
 export const CONTROL_REFUSAL_PLAIN =
   "A person has taken control of this computer, so this call was NOT performed. " +

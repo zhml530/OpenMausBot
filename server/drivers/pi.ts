@@ -22,7 +22,7 @@ import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { PROVIDER_CREDENTIAL_ENV, stripWorkspaceCredentialEnv } from "../config.ts";
-import { computerProxyEnv } from "../container-computer.ts";
+import { computerProxyEnv } from "../computer-proxy-env.ts";
 import { augmentedPath } from "../env-path.ts";
 import { describeSpawnFailure, killCliTree, spawnCli } from "../procs.ts";
 import { SPAWNED_PROXIES } from "../proxy-paths.ts";
@@ -63,16 +63,6 @@ export function buildMcpServers(turn: SendTurnInput): Record<string, unknown> | 
       command: process.execPath,
       args: [SPAWNED_PROXIES.computer],
       env: { ...NODE_ENV_FLAG, ...computerProxyEnv(turn.integrations.computer) },
-    };
-  } else if (turn.integrations?.localComputer) {
-    const local = turn.integrations.localComputer;
-    servers.computer = {
-      command: local.command,
-      args: local.args,
-      env: local.env,
-      // Host control carries scope so the extension gates every call behind
-      // a permission card; isolated computers deliberately omit it.
-      ...(local.scope ? { scope: local.scope } : {}),
     };
   }
   if (turn.integrations?.agents) servers.agents = { ...turn.integrations.agents };
@@ -304,13 +294,6 @@ export const PiDriver: ProviderDriver<PiConfig> = {
     const sendTurn = async (turn: SendTurnInput) => {
       const { threadId } = turn;
       if (active.has(threadId)) throw new Error("a turn is already running on this thread");
-      // Host control always routes through the permission card; full-auto must
-      // never get unapproved hands on the user's machine (same guard as the
-      // Claude and ACP drivers).
-      const controlsHost = turn.integrations?.localComputer?.scope === "local-computer";
-      if (controlsHost && config.fullAuto) {
-        throw new Error("local computer control requires the interactive approval broker");
-      }
       const turnId = newId();
       const pending = new Map<string, (decision: { behavior: "allow" | "deny" | "answer"; message?: string }) => void>();
       let settled = false;
@@ -665,11 +648,6 @@ export const PiDriver: ProviderDriver<PiConfig> = {
           computerMcp: true,
           composioMcp: true,
           phoneMcp: true,
-          // Host control (the user's real Mac) rides the pi-native permission
-          // card (`ctx.ui.confirm` → extension_ui_request) gated in the
-          // extension, so it is offered exactly when the other engines offer
-          // it: enabled unless the bot is in full-auto.
-          localComputerMcp: !config.fullAuto,
           // Images ride the ordinary prompt as <attached-image path> refs the
           // agent opens with its read tool — no native image blocks needed,
           // same as every other CLI engine.

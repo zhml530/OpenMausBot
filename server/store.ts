@@ -49,8 +49,6 @@ export interface OptionCardData {
   held?: string;
   /** the narrow grant "always allow" remembers, e.g. "Bash:git" */
   allowKey?: string;
-  /** Local actions never share remembered grants with cloud/tool approvals. */
-  approvalScope?: "local-computer";
 }
 
 export interface ConnectorCardData {
@@ -294,13 +292,12 @@ export interface BotRecord {
   modelSelection: ModelSelection;
   /** provider-native continuation per instance (e.g. claude session id) */
   resumeCursors: Record<string, unknown>;
-  /** which computer the bot acts on: its cloud box, this Mac (local CUA),
+  /** which computer the bot acts on: its cloud box, this computer,
    * or none. Unset = auto (box when it exists, else local when available). */
   computer?: "cloud" | "vm" | "local" | "off";
   /** Which cloud computer backs `computer: "cloud"`; absent means Box. */
   cloudBackend?: CloudBackend;
-  /** Auto mode may prepare/start this bot's managed VPS container. Off by
-   * default because starting remote infrastructure is an external action. */
+  /** Legacy persisted field, discarded during migration. */
   autoStartVps?: boolean;
   /** where NEW tasks run their shell tools; each task pins its own copy
    * on its first turn (TaskRecord.cwd). Absent = the home folder. */
@@ -510,11 +507,11 @@ export class Store {
       if (b.busy || (b.activity !== undefined && b.activity !== "idle")) botsMigrated = true;
       b.busy = false;
       b.activity = "idle";
-      if (b.cloudBackend !== undefined && b.cloudBackend !== "box" && b.cloudBackend !== "vps") {
+      if (b.cloudBackend !== undefined && b.cloudBackend !== "box") {
         delete b.cloudBackend;
         botsMigrated = true;
       }
-      if (b.autoStartVps !== undefined && b.autoStartVps !== true && b.autoStartVps !== false) {
+      if (b.autoStartVps !== undefined) {
         delete b.autoStartVps;
         botsMigrated = true;
       }

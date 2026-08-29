@@ -166,14 +166,12 @@ describe("computer proxy (fake box)", () => {
     expect(command).toContain('exec env -i HOME="$HOME"');
     if (process.platform !== "win32") expect(spawnSync("/bin/bash", ["-n", "-c", command]).status).toBe(0);
     expect(command).toMatch(/xdotool mousemove \$CX \$CY click 1/);
-    expect(command).toContain("/opt/ogb/cua-driver call click");
-    expect(command).toContain("CUA_DRIVER_RS_TELEMETRY_ENABLED=0");
     expect(command).toMatch(/getdisplaygeometry/); // scaling resolved box-side
     // scaling is conditional: a display narrower than the model's space is
     // captured at native size, so the coordinates must pass through as-is
     expect(command).toMatch(/if \[ "\$W" -gt 1280 \].*CX=\$\(\( 100 \* W \/ 1280 \)\).*else CX=100/);
     expect(command).toMatch(/scrot -o -q 75/); // JPEG, no unconditional convert
-    expect(command).toContain("call get_desktop_state");
+    expect(command).not.toContain("get_desktop_state");
     // ...and the model got pixels back with it, no second tool call
     const content = res.result.content;
     expect(content[0].type).toBe("text");

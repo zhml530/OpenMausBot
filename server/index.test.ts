@@ -1283,7 +1283,7 @@ describe("harness HTTP API", () => {
             approvePeerComms: false,
             composio: true,
             computer: "local",
-            cloudBackend: "vps",
+            cloudBackend: "legacy-backend",
             cwd: "/",
             hidden: false,
           },
@@ -1442,58 +1442,6 @@ describe("harness HTTP API", () => {
     const after = (await api("GET", "/api/bots")).body.bots.find((b: { id: string }) => b.id === bot.id);
     expect(after.modelSelection).toEqual(selection);
     expect(after.modelSelection.effort).toBeUndefined();
-  });
-
-  it("grants Auto on this computer only through the warning acknowledgement", async () => {
-    const created = await api("POST", "/api/bots");
-    const bot = created.body.bot;
-    expect((await api("PATCH", `/api/bots/${bot.id}`, { autoApprove: true })).body.bot.autoApprove).toBe(
-      true,
-    );
-
-    // The important half: a blind PATCH — exactly what a bot curling the
-    // loopback API from a tool call would send — must be refused. The
-    // renderer's warning dialog is not a boundary; this 400 is.
-    const blind = await api("PATCH", `/api/bots/${bot.id}`, { computer: "local" });
-    expect(blind.status).toBe(400);
-    const oneShot = await api("PATCH", `/api/bots/${bot.id}`, { computer: "local", autoApprove: true });
-    expect(oneShot.status).toBe(400);
-    const after = (await api("GET", "/api/bots")).body.bots.find((b: { id: string }) => b.id === bot.id);
-    expect(after.computer).not.toBe("local");
-
-    // The dialog's acknowledgement grants it, and the flag is not persisted.
-    const local = await api("PATCH", `/api/bots/${bot.id}`, { computer: "local", acknowledgeLocalAuto: true });
-    expect(local.status).toBe(200);
-    expect(local.body.bot).toMatchObject({ computer: "local", autoApprove: true });
-    expect(local.body.bot.acknowledgeLocalAuto).toBeUndefined();
-
-    // Once granted, re-asserting auto and unrelated PATCHes need no re-ack.
-    const enabled = await api("PATCH", `/api/bots/${bot.id}`, { autoApprove: true });
-    expect(enabled.status).toBe(200);
-    expect(enabled.body.bot.autoApprove).toBe(true);
-
-    // The other direction needs the warning too: local first, then auto.
-    await api("PATCH", `/api/bots/${bot.id}`, { autoApprove: false });
-    const autoBlind = await api("PATCH", `/api/bots/${bot.id}`, { autoApprove: true });
-    expect(autoBlind.status).toBe(400);
-    const autoAcked = await api("PATCH", `/api/bots/${bot.id}`, { autoApprove: true, acknowledgeLocalAuto: true });
-    expect(autoAcked.status).toBe(200);
-
-    // Leaving local ends the grant; coming back needs the warning again.
-    await api("PATCH", `/api/bots/${bot.id}`, { computer: "off" });
-    const back = await api("PATCH", `/api/bots/${bot.id}`, { computer: "local" });
-    expect(back.status).toBe(400);
-    await api("DELETE", `/api/bots/${bot.id}`);
-  });
-
-  it("offers an idempotent stop boundary for active local turns", async () => {
-    const unsupported = await api("POST", "/api/local-computer/interrupt");
-    expect(unsupported).toEqual({
-      status: 415,
-      body: { error: "content-type must be application/json" },
-    });
-    const stopped = await api("POST", "/api/local-computer/interrupt", {});
-    expect(stopped).toEqual({ status: 200, body: { ok: true } });
   });
 
   it("persists an answered onboarding card", async () => {
@@ -1689,41 +1637,6 @@ describe("harness HTTP API", () => {
     await api("PATCH", "/api/config", { features: { skillRecorder: false } });
   });
 
-  it("keeps shared Local VM mode by default and resolves isolated targets per bot when enabled", async () => {
-    const first = (await api("POST", "/api/bots")).body.bot;
-    const second = (await api("POST", "/api/bots")).body.bot;
-    const before = await api("GET", "/api/config");
-    expect(before.body.localVm).toEqual({ mode: "shared", maxInstances: 2 });
-
-    const shared = await api("GET", `/api/bots/${first.id}/local-computer`);
-    expect(shared.status).toBe(200);
-    expect(shared.body).toMatchObject({ mode: "shared", target_key: "shared" });
-
-    const saved = await api("PATCH", "/api/config", {
-      localVm: { mode: "per-bot", maxInstances: 3 },
-    });
-    expect(saved.status).toBe(200);
-    expect(saved.body.localVm).toEqual({ mode: "per-bot", maxInstances: 3 });
-
-    const [firstStatus, secondStatus] = await Promise.all([
-      api("GET", `/api/bots/${first.id}/local-computer`),
-      api("GET", `/api/bots/${second.id}/local-computer`),
-    ]);
-    expect(firstStatus.body).toMatchObject({ mode: "per-bot", max_instances: 3 });
-    expect(secondStatus.body).toMatchObject({ mode: "per-bot", max_instances: 3 });
-    expect(firstStatus.body.target_key).not.toBe(secondStatus.body.target_key);
-    expect(firstStatus.body.container_name).not.toBe(secondStatus.body.container_name);
-    expect(firstStatus.body.workspace_path).not.toBe(secondStatus.body.workspace_path);
-
-    const invalid = await api("PATCH", "/api/config", { localVm: { maxInstances: 5 } });
-    expect(invalid.status).toBe(400);
-    expect(invalid.body.error).toContain("localVm.maxInstances");
-
-    const disk = JSON.parse(readFileSync(join(home, ".Roundtable", "config.json"), "utf8"));
-    expect(disk.localVm).toEqual({ mode: "per-bot", maxInstances: 3 });
-    await api("PATCH", "/api/config", { localVm: { mode: "shared", maxInstances: 2 } });
-  });
-
   it("keeps an active turn alive when only the room timeout changes", async () => {
     const created = await api("POST", "/api/bots", {});
     const botId = created.body.bot.id;
@@ -1771,30 +1684,6 @@ describe("harness HTTP API", () => {
       await api("DELETE", `/api/bots/${botId}`);
       await api("PUT", "/api/config", { rooms: { turnTimeoutMinutes: 5 } });
     }
-  });
-
-  it("validates the non-secret VPS alias and keeps old bots on Box by default", async () => {
-    const before = await api("GET", "/api/bots");
-    const bot = before.body.bots[0];
-    expect(bot.cloudBackend).toBeUndefined();
-
-    const bad = await api("PUT", "/api/config", { vps: { sshAlias: "prod; reboot" } });
-    expect(bad.status).toBe(400);
-
-    const saved = await api("PUT", "/api/config", { vps: { sshAlias: "production-vps" } });
-    expect(saved.status).toBe(200);
-    expect(saved.body.vps).toEqual({ configured: true, sshAlias: "production-vps" });
-    expect(JSON.stringify(saved.body)).not.toContain("privateKey");
-
-    const patched = await api("PATCH", `/api/bots/${bot.id}`, { cloudBackend: "vps" });
-    expect(patched.status).toBe(200);
-    expect(patched.body.bot.cloudBackend).toBe("vps");
-    const autoStart = await api("PATCH", `/api/bots/${bot.id}`, { autoStartVps: true });
-    expect(autoStart.status).toBe(200);
-    expect(autoStart.body.bot.autoStartVps).toBe(true);
-    expect((await api("PATCH", `/api/bots/${bot.id}`, { autoStartVps: "yes" })).status).toBe(400);
-    const invalid = await api("PATCH", `/api/bots/${bot.id}`, { cloudBackend: "daytona" });
-    expect(invalid.status).toBe(400);
   });
 
   it("validates a Composio project key, creates a Session, and keeps externally stored secrets off disk", async () => {

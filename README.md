@@ -65,10 +65,9 @@ already have:
   custom CLI binary (a versioned build or wrapper) in **Settings → Engines**.
 - **Local first.** An Electron utility process owns every agent process and talks to the renderer over private,
   typed IPC. Transcripts, keys, and events live in `~/.Roundtable`, not a cloud or a loopback web service.
-- **Agents with hands.** Each bot can use a cloud Linux desktop, an isolated Local VM, or—where the platform
-  safety boundary is currently certified—your own computer, plus 500+ apps through Composio. Host control is
-  available on macOS and Ubuntu Xorg after explicit opt-in. Ubuntu Wayland host control remains disabled while
-  issue #345 is resolved.
+- **Agents with hands.** Each bot can use a Box cloud Linux desktop, control a USB-connected Android device,
+  and work with 500+ apps through Composio. A separate, user-initiated screen preview lets you view this
+  computer without granting the bot control.
 
 ## Features
 
@@ -88,8 +87,8 @@ providers dimmed with the reason. Switch a bot's model mid-conversation.
 
 ### 🖥️ Every bot gets a computer
 
-Open the Computer panel and the bot's cloud desktop spins up on its own — live screen preview while it
-works, "Open desktop" to take over in your browser, or point the bot at *this Mac* instead.
+Open the Computer panel and the bot's Box cloud desktop spins up on its own — live screen preview while it
+works and **Open desktop** when you need to take control. Computer access can also be turned off per bot.
 
 <img src="docs/screenshots/computer-panel.png" alt="Computer panel with live screen preview" width="100%">
 
@@ -101,7 +100,7 @@ works, "Open desktop" to take over in your browser, or point the bot at *this Ma
 ### 🙋 Bots ask before they act
 
 Shell commands, file edits, and questions surface as inline cards — Allow / Deny / answer in chat. A
-permission broker turns every risky action into a decision you make, for cloud and local computers alike.
+permission broker turns risky actions into decisions you make.
 
 <img src="docs/screenshots/approval-card.png" alt="Approval and question cards in chat" width="100%">
 
@@ -244,7 +243,7 @@ Package the desktop application:
 ```sh
 pnpm package:mac      # macOS: DMG + ZIP; requires Swift/Xcode tools
 pnpm package:win      # Windows: installer + ZIP
-pnpm package:linux    # Ubuntu x64: .deb + AppImage + verified CUA runtime
+pnpm package:linux    # Ubuntu x64: .deb + AppImage
 ```
 
 ### Desktop capability status
@@ -254,22 +253,14 @@ pnpm package:linux    # Ubuntu x64: .deb + AppImage + verified CUA runtime
 | Packaged app, embedded harness, local agent CLIs | Supported | Beta | Beta |
 | Composio and Box/cloud computers | Supported | Beta | Beta |
 | Explicit preview-only local screen capture | Supported | Beta | Beta |
-| Bot control of this computer | Supported | Beta, explicit opt-in | Disabled: Wayland safety gate |
+| USB Android device control | Supported | Beta | Beta |
 | Native on-device dictation | Supported | Planned | Planned |
 
-The Linux preview is user-initiated and never enables local bot control or Auto routing. On Xorg, the reviewed Cua
-Driver 0.19.3 runtime starts only after explicit opt-in and without its full-screen cursor overlay. On Wayland the
-app never starts it and clears legacy opt-ins while that real-seat safety gate remains unresolved. Chat, preview,
-Cloud, and Local VM remain available on both sessions. See the [Ubuntu Desktop guide](docs/linux-desktop.md) and tracking
-issues [#29](https://github.com/milind-soni/Roundtable/issues/29),
-[#345](https://github.com/milind-soni/Roundtable/issues/345), and
-[#113](https://github.com/milind-soni/Roundtable/issues/113).
-
-The Linux packager downloads only the tag-pinned upstream archive during the build, verifies its size, SHA-256,
-complete member allowlist, and inner executable hashes, then packages only the CLI and cursor-theme sidecar. The
-installed app never downloads or self-updates native automation code. Cua's MIT notice, Inter's SIL OFL, a generated
-third-party license report, and a CycloneDX inventory ship with the runtime. See
-[`third_party/cua-driver/`](third_party/cua-driver/) for the reviewed provenance record.
+The Linux preview is user-initiated and view-only. On Wayland it uses the system portal chooser; on Xorg it captures
+the primary monitor directly. It never grants a bot control of this computer. Chat, preview, Box cloud computers,
+and USB Android device control remain available in both session types. See the
+[Ubuntu Desktop guide](docs/linux-desktop.md) and tracking issue
+[#29](https://github.com/milind-soni/Roundtable/issues/29).
 
 These credentials are optional — local chat works without them. Paste a key once in **App Settings** (gear
 in the sidebar footer) when you want to enable its integration:
@@ -309,7 +300,7 @@ dedicated receiver through a hosted relay or a tool such as Tailscale Funnel.
 ## Status
 
 Early but real — the loop works end to end: message → agent → streamed reply → tools → approvals →
-computer use. macOS, Windows, and Ubuntu 24.04 x64 have released builds; Ubuntu remains a beta with the
+Box computer use. macOS, Windows, and Ubuntu 24.04 x64 have released builds; Ubuntu remains a beta with the
 capability limits above. Rough edges to expect: hosted/mobile connectivity is still being built, and webhook
 triggers currently use the local receiver rather than an always-on hosted relay.
 Voice needs an ElevenLabs key, and calls are macOS-only for now (they ride the same on-device dictation as
@@ -328,10 +319,6 @@ which takes care of receipts and taxes; nothing about the app ever sits behind a
 ## License
 
 [Apache License 2.0](LICENSE) © 2026 Milind Soni and Roundtable contributors.
-
-Packaged Cua Driver components retain their upstream MIT, SIL OFL 1.1, MPL-2.0, and other dependency terms;
-the corresponding notices, license texts, source locations, and SBOM are in
-[`third_party/cua-driver/`](third_party/cua-driver/) and ship beside the native runtime.
 
 Roundtable is an independent, open-source project inspired by Grok Bot. It is
 not affiliated with, endorsed by, or associated with xAI; "Grok" is a trademark

@@ -7,7 +7,7 @@
 // Integrations become MCP servers on the CLI:
 //   - Composio Sessions (connected apps → tools) over streamable HTTP
 //   - the bot's cloud computer (box.ascii.dev) via server/computer-proxy.ts
-//     — screenshot/exec/open_url, the CUA-on-the-box bridge
+//     — screenshot/exec/open_url through the Box computer bridge
 import { createHash } from "node:crypto";
 import { mkdtempSync, readFileSync, rmSync, unlinkSync, writeFileSync } from "node:fs";
 import { createServer as createNetServer } from "node:net";
@@ -28,7 +28,7 @@ import type {
   RuntimeEventListener,
   SendTurnInput,
 } from "../contracts.ts";
-import { computerProxyEnv } from "../container-computer.ts";
+import { computerProxyEnv } from "../computer-proxy-env.ts";
 import { newEventId, newId } from "../contracts.ts";
 import { classifyError, computeBackoff, interruptibleDelay, RETRY_MAX_ATTEMPTS } from "./retry.ts";
 import {
@@ -525,10 +525,6 @@ export const ClaudeDriver: ProviderDriver<ClaudeConfig> = {
     const sendTurn = async (turn: SendTurnInput) => {
       const { threadId } = turn;
       if (active.has(threadId)) throw new Error("a turn is already running on this thread");
-      const controlsHost = turn.integrations?.localComputer?.scope === "local-computer";
-      if (controlsHost && config.permissionMode === "bypassPermissions") {
-        throw new Error("local computer control requires the interactive approval broker");
-      }
       const turnId = newId();
       const retryAbort = new AbortController();
       const retry = retryState.get(threadId) ?? { attempt: 0, cancelled: false };
@@ -572,16 +568,6 @@ export const ClaudeDriver: ProviderDriver<ClaudeConfig> = {
           env: { ...NODE_ENV_FLAG, ...computerProxyEnv(turn.integrations.computer) },
         };
         allowed.push("mcp__computer");
-      } else if (turn.integrations?.localComputer) {
-        const local = turn.integrations.localComputer;
-        mcpServers.computer = {
-          command: local.command,
-          args: local.args,
-          env: local.env,
-        };
-        // The isolated Local VM preserves the established pre-allow behavior.
-        // Host tools always route through Roundtable's permission broker.
-        if (!controlsHost) allowed.push("mcp__computer");
       }
       // peer-agent comms (list_bots/ask_bot) — the harness builds the whole
       // spawn contract (command/args/env incl. the boot token) in
@@ -670,15 +656,11 @@ export const ClaudeDriver: ProviderDriver<ClaudeConfig> = {
       // Only create a broker for a new process. A compatible retained process
       // keeps its existing proxy connection and broker across turns.
       if (socketPath) {
-        // remembers which tool each pending ask came from, so the resolved
-        // event can scope approvals to real desktop-control tools only
-        const askTools = new Map<string, string | undefined>();
         broker = createPermissionBroker({
           socketPath,
           isActive: () => Boolean(sessions.get(threadId)?.turn),
           onAsk: (ask) => {
             const eventTurnId = sessions.get(threadId)?.turn?.turnId ?? turnId;
-            askTools.set(ask.id, typeof ask.tool === "string" ? ask.tool : undefined);
             emit({
               ...base(threadId, eventTurnId),
               type: "request.opened",
@@ -686,10 +668,6 @@ export const ClaudeDriver: ProviderDriver<ClaudeConfig> = {
               requestType: ask.kind,
               tool: ask.tool,
               summary: askSummary(ask),
-              approvalScope:
-                typeof ask.tool === "string" && controlsHost && ask.tool.startsWith("mcp__computer")
-                  ? "local-computer"
-                  : undefined,
               choices: Array.isArray(ask.input?.choices) ? (ask.input.choices as string[]).slice(0, 5) : undefined,
             });
           },
@@ -701,10 +679,7 @@ export const ClaudeDriver: ProviderDriver<ClaudeConfig> = {
               requestId: resolved.id,
               behavior: resolved.behavior,
               source: resolved.source,
-              approvalScope:
-                controlsHost && typeof askTools.get(resolved.id) === "string" && askTools.get(resolved.id)!.startsWith("mcp__computer") ? "local-computer" : undefined,
             });
-            askTools.delete(resolved.id);
           },
         });
       }
@@ -1031,7 +1006,6 @@ export const ClaudeDriver: ProviderDriver<ClaudeConfig> = {
           images: true,
           effortLevels: ["low", "medium", "high", "xhigh", "max"],
           queueing: true,
-          localComputerMcp: config.permissionMode !== "bypassPermissions",
         },
         sendTurn,
         steer,

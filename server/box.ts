@@ -11,7 +11,7 @@
 //   - X11 desktop with Chrome + Ghostty; passwordless sudo; node 24.
 //   - the dedicated IP rotates across archive/resume — never persist it.
 import type { AppConfig } from "./config.ts";
-import { ensureRemoteCuaCommand, remoteComputerBootstrapCommand } from "./remote-computer.ts";
+import { remoteComputerBootstrapCommand } from "./remote-computer.ts";
 
 // overridable so tests can point at a stub instead of the live provider
 const BOX_API = process.env.OMB_BOX_API || "https://ascii.dev/api/box/v1";
@@ -244,8 +244,7 @@ export async function provisionBox(cfg: AppConfig, botId: string, botName: strin
     const ready = await waitReady(cfg, box.id);
     if (!ready) throw new Error("box did not become ready within 90s — retry in a minute");
 
-    // Install the exact Cua Driver executable in the background, keep its
-    // daemon private to the VM, and retain X11 tooling as a degraded fallback.
+    // Install the retained X11 tooling and Chrome DevTools helper.
     const bootstrap = remoteComputerBootstrapCommand(botName);
     let boot;
     for (let attempt = 0; attempt < 5; attempt++) {
@@ -280,9 +279,6 @@ export async function joinBox(cfg: AppConfig, botId: string) {
   if (!box) throw new Error("no computer yet — provision it first");
   const ready = await waitReady(cfg, box.id);
   if (!ready) throw new Error("the box did not wake in time — try again");
-  // Provider archive/resume preserves disk but not processes. Reattach the
-  // driver daemon before handing the desktop back to the user.
-  await runCommand(cfg, box.id, ensureRemoteCuaCommand(), { timeoutMs: 15_000 }).catch(() => null);
   return { joinUrl: await mintDesktopUrl(cfg, box.id), state: ready.state ?? null };
 }
 

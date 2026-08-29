@@ -1,7 +1,7 @@
 // computer-proxy — a minimal MCP stdio server the claude CLI spawns
 // (agentcal's permission-proxy pattern, dedicated entry file so there is
 // no argv-dispatch fork-bomb hazard). It gives the agent its bot's cloud
-// computer (box.ascii.dev) as CUA-grade tools.
+// computer (box.ascii.dev) as X11 and Chrome DevTools tools.
 //
 // Transport: every action goes through the box's REST run-command
 // endpoint (no inbound port on the box, no tunnel), so a round trip is
@@ -36,14 +36,7 @@ import {
   type CropRegion,
 } from "./computer-observation.ts";
 import { CONTROL_REFUSAL, createControlClient } from "./control-client.ts";
-import {
-  ensureRemoteCuaCommand,
-  REMOTE_CUA_EXECUTABLE,
-  REMOTE_CUA_SESSION,
-  REMOTE_CUA_SOCKET,
-  REMOTE_CUA_VERSION,
-  semanticBrowserCommand,
-} from "./remote-computer.ts";
+import { REMOTE_CDP_HELPER, semanticBrowserCommand } from "./remote-computer.ts";
 
 const BOX_API = process.env.OGB_BOX_API ?? "https://ascii.dev/api/box/v1";
 const boxId = process.env.OGB_BOX_ID ?? "";
@@ -203,7 +196,6 @@ async function waitForNavigation(
 }
 
 const ENV = 'export DISPLAY=${DISPLAY:-:0}';
-const CUA_ENV = "CUA_DRIVER_INSTALL_CHANNEL=python_package CUA_DRIVER_RS_TELEMETRY_ENABLED=0";
 /** Resolve the real display size into $W/$H for box-side click scaling. */
 const GEOMETRY = [
   "g=$(xdotool getdisplaygeometry 2>/dev/null)",
@@ -220,18 +212,6 @@ const GEOMETRY = [
 function scaled(varName: string, value: number): string {
   const v = Math.round(value);
   return `if [ "$W" -gt ${SHOT_WIDTH} ] 2>/dev/null; then ${varName}=$(( ${v} * W / ${SHOT_WIDTH} )); else ${varName}=${v}; fi`;
-}
-
-/** Prefer the official driver but keep the proven X11 command as a degraded
- * path while a first install is finishing or if the daemon needs repair. */
-function cuaOrX11(tool: string, argumentsShell: string, fallback: string): string {
-  return [
-    `if [ -x ${REMOTE_CUA_EXECUTABLE} ] && ${REMOTE_CUA_EXECUTABLE} status --socket ${REMOTE_CUA_SOCKET} >/dev/null 2>&1;`,
-    `then if CUA_OUT=$(env ${CUA_ENV} ${REMOTE_CUA_EXECUTABLE} call ${tool} ${argumentsShell} --socket ${REMOTE_CUA_SOCKET} 2>/tmp/ogb-cua-call.error);`,
-    `then echo "BACKEND CUA"; echo "CUA_RESULT $(printf %s "$CUA_OUT" | base64 -w0 2>/dev/null || printf %s "$CUA_OUT" | base64 | tr -d '\\n')"`,
-    `else ${fallback}; X11_RC=$?; echo "BACKEND X11"; [ "$X11_RC" -eq 0 ]; fi`,
-    `else ${fallback}; X11_RC=$?; echo "BACKEND X11"; [ "$X11_RC" -eq 0 ]; fi`,
-  ].join(" ");
 }
 
 /** act → settle → capture → canonical hash → optional crop → inline bytes.
@@ -253,7 +233,7 @@ function captureBlock(settleMs = SETTLE_MS, crop: CropRegion | null = null): str
     'raw=/tmp/ogb-shot.png',
     `rm -f "$f" 2>/dev/null || true`,
     `rm -f "$raw" 2>/dev/null || true`,
-    `if [ -x ${REMOTE_CUA_EXECUTABLE} ] && ${REMOTE_CUA_EXECUTABLE} status --socket ${REMOTE_CUA_SOCKET} >/dev/null 2>&1 && env ${CUA_ENV} ${REMOTE_CUA_EXECUTABLE} call get_desktop_state ${shellQuote(JSON.stringify({ scope: "desktop", session: REMOTE_CUA_SESSION }))} --socket ${REMOTE_CUA_SOCKET} --screenshot-out-file "$raw" >/dev/null 2>&1 && command -v convert >/dev/null 2>&1 && convert "$raw" -quality ${JPEG_QUALITY} "$f" 2>/dev/null; then echo "CAPTURE CUA"; else scrot -o -q ${JPEG_QUALITY} "$f" 2>/dev/null || import -window root -quality ${JPEG_QUALITY} "$f" 2>/dev/null || ffmpeg -y -f x11grab -i "$DISPLAY" -frames:v 1 -q:v 6 "$f" >/dev/null 2>&1; echo "CAPTURE X11"; fi`,
+    `scrot -o -q ${JPEG_QUALITY} "$f" 2>/dev/null || import -window root -quality ${JPEG_QUALITY} "$f" 2>/dev/null || ffmpeg -y -f x11grab -i "$DISPLAY" -frames:v 1 -q:v 6 "$f" >/dev/null 2>&1`,
     // only re-encode when the display is bigger than the model's space —
     // ImageMagick startup is the most expensive step in the old pipeline
     downscale,
@@ -348,23 +328,6 @@ function geometryFrom(stdout: string): Frame["geometry"] {
   const width = Number(match[1]);
   const height = Number(match[2]);
   return width > 0 && height > 0 ? { width, height } : null;
-}
-
-function automationSummary(stdout: string): string {
-  if (/^BACKEND CUA$/m.test(stdout)) {
-    const encoded = stdout.match(/^CUA_RESULT\s+([^\s]+)$/m)?.[1];
-    if (!encoded) return `Cua Driver ${REMOTE_CUA_VERSION}`;
-    try {
-      const result = JSON.parse(Buffer.from(encoded, "base64").toString("utf8")) as Record<string, unknown>;
-      const details = [result.effect, result.route, result.escalation]
-        .filter((value): value is string => typeof value === "string" && Boolean(value))
-        .slice(0, 3);
-      return [`Cua Driver ${REMOTE_CUA_VERSION}`, ...details].join(" · ");
-    } catch {
-      return `Cua Driver ${REMOTE_CUA_VERSION}`;
-    }
-  }
-  return /^BACKEND X11$/m.test(stdout) ? "X11 fallback" : "automation backend unavailable";
 }
 
 async function observationBounds(): Promise<{ width: number; height: number } | null> {
@@ -528,7 +491,7 @@ const TOOLS = [
   },
   {
     name: "computer_status",
-    description: "Report whether the cloud computer is using Cua Driver or the degraded X11 fallback.",
+    description: "Report whether X11 controls and Chrome DevTools are available on the cloud computer.",
     inputSchema: { type: "object", properties: {} },
   },
   {
@@ -666,39 +629,22 @@ function actionShell(a: any): string | { error: string } {
     if (!Number.isFinite(x) || !Number.isFinite(y)) return { error: "click needs numeric x,y" };
     const btn = a.button === "right" ? 3 : 1;
     const rep = a.double ? "--repeat 2 --delay 60 " : "";
-    const button = a.button === "right" ? "right" : "left";
-    const count = a.double ? 2 : 1;
-    const fallback = `xdotool mousemove $CX $CY click ${rep}${btn}`;
-    const args = `$(printf '{"x":%s,"y":%s,"button":"${button}","count":${count},"scope":"desktop","session":"${REMOTE_CUA_SESSION}"}' "$CX" "$CY")`;
-    return `${scaled("CX", x)}; ${scaled("CY", y)}; CUA_ARGS=${args}; ${cuaOrX11("click", '"$CUA_ARGS"', fallback)}`;
+    return `${scaled("CX", x)}; ${scaled("CY", y)}; xdotool mousemove $CX $CY click ${rep}${btn}`;
   }
   if (kind === "type_text") {
     const t = String(a.text ?? "");
     if (!t) return { error: "type_text needs text" };
-    const cuaArgs = shellQuote(JSON.stringify({ text: t, scope: "desktop", session: REMOTE_CUA_SESSION }));
-    return cuaOrX11("type_text", cuaArgs, `xdotool type --clearmodifiers --delay 8 -- ${shellQuote(t)}`);
+    return `xdotool type --clearmodifiers --delay 8 -- ${shellQuote(t)}`;
   }
   if (kind === "press_key") {
     const keys = String(a.keys ?? "").replace(/[^\w+]/g, "");
     if (!keys) return { error: "press_key needs keys" };
-    const parts = keys.split("+").filter(Boolean);
-    const tool = parts.length > 1 ? "hotkey" : "press_key";
-    const cuaArgs = shellQuote(
-      JSON.stringify(
-        parts.length > 1
-          ? { keys: parts, scope: "desktop", session: REMOTE_CUA_SESSION }
-          : { key: parts[0]?.toLowerCase(), scope: "desktop", session: REMOTE_CUA_SESSION },
-      ),
-    );
-    return cuaOrX11(tool, cuaArgs, `xdotool key ${keys}`);
+    return `xdotool key ${keys}`;
   }
   if (kind === "scroll") {
     const clicks = Math.min(Math.max(Math.round(Number(a.clicks) || 3), 1), 20);
     const btn = a.direction === "up" ? 4 : 5;
-    const direction = a.direction === "up" ? "up" : "down";
-    const fallback = `xdotool click --repeat ${clicks} ${btn}`;
-    const args = `$(printf '{"x":%s,"y":%s,"direction":"${direction}","amount":${clicks},"by":"line","scope":"desktop","session":"${REMOTE_CUA_SESSION}"}' "$((W / 2))" "$((H / 2))")`;
-    return `CUA_ARGS=${args}; ${cuaOrX11("scroll", '"$CUA_ARGS"', fallback)}`;
+    return `xdotool click --repeat ${clicks} ${btn}`;
   }
   if (kind === "wait") {
     const ms = Math.min(Math.max(Number(a.ms) || 500, 0), 5000);
@@ -736,7 +682,6 @@ async function actAndObserve(
   const command = [
     ENV,
     GEOMETRY,
-    ensureRemoteCuaCommand(),
     guarded,
     observe ? captureBlock(settleOf(args)) : "true",
     'echo "ACT $ACT"',
@@ -750,10 +695,9 @@ async function actAndObserve(
       true,
     );
   }
-  const backend = automationSummary(out.stdout);
   const full = acted
-    ? `${note}\n(${backend})`
-    : `${note}\n(the action reported an error: ${out.stderr.slice(0, 160) || "no detail"}; ${backend})`;
+    ? `${note}\n(X11)`
+    : `${note}\n(the X11 action reported an error: ${out.stderr.slice(0, 160) || "no detail"})`;
   if (!observe) return text(id, full, !acted);
   return observed(id, full, await frameFrom(out));
 }
@@ -779,7 +723,6 @@ async function semanticActAndObserve(
     ENV,
     GEOMETRY,
     guarded,
-    ensureRemoteCuaCommand(),
     observe ? captureBlock(settleOf(args)) : "true",
     'echo "SEM $SEM"',
   ].join("; ");
@@ -853,7 +796,7 @@ async function call(id: unknown, name: string, args: any) {
         );
       }
     }
-    const out = await runOnBox([ENV, GEOMETRY, ensureRemoteCuaCommand(), captureBlock(0, crop)].join("; "), 60_000);
+    const out = await runOnBox([ENV, GEOMETRY, captureBlock(0, crop)].join("; "), 60_000);
     if (/CROP_FAILED/.test(out.stdout)) {
       return text(id, `crop failed: ${out.stderr.slice(0, 200) || "ImageMagick could not create the requested region"}`, true);
     }
@@ -928,18 +871,17 @@ async function call(id: unknown, name: string, args: any) {
   if (name === "computer_status") {
     const command = [
       ENV,
-      ensureRemoteCuaCommand(),
-      `if [ -x ${REMOTE_CUA_EXECUTABLE} ] && ${REMOTE_CUA_EXECUTABLE} status --socket ${REMOTE_CUA_SOCKET} >/dev/null 2>&1; then`,
-      `  echo "CUA $(${REMOTE_CUA_EXECUTABLE} --version)"`,
-      `  env ${CUA_ENV} ${REMOTE_CUA_EXECUTABLE} call health_report '{}' --socket ${REMOTE_CUA_SOCKET} 2>/dev/null || true`,
-      "else echo 'X11 fallback'; fi",
-    ].join("\n");
+      'command -v xdotool >/dev/null 2>&1 && echo "X11 ready" || echo "X11 unavailable"',
+      `test -x ${REMOTE_CDP_HELPER} && curl -sf --max-time 2 http://127.0.0.1:9222/json/list >/dev/null && echo "CDP ready" || echo "CDP unavailable"`,
+    ].join("; ");
     const out = await runOnBox(command, 20_000);
-    if (!/^CUA /m.test(out.stdout)) {
-      return text(id, "Cloud computer automation: X11 fallback (Cua Driver is still installing or needs repair).", true);
-    }
-    const overall = out.stdout.match(/"overall"\s*:\s*"(ok|degraded|failed)"/)?.[1] ?? "unknown";
-    return text(id, `Cloud computer automation: Cua Driver ${REMOTE_CUA_VERSION} (${overall}).`);
+    const x11Ready = /^X11 ready$/m.test(out.stdout);
+    const cdpReady = /^CDP ready$/m.test(out.stdout);
+    return text(
+      id,
+      `Cloud computer automation: X11 ${x11Ready ? "ready" : "unavailable"}; Chrome DevTools ${cdpReady ? "ready" : "unavailable"}.`,
+      !x11Ready,
+    );
   }
   if (name === "click") {
     const x = Math.round(Number(args.x));
@@ -987,7 +929,7 @@ async function call(id: unknown, name: string, args: any) {
     const out = await runOnBox(command, 120_000);
     const note = `exit ${out.exitCode}\n${out.stdout.slice(-6000)}${out.stderr ? `\n[stderr]\n${out.stderr.slice(-2000)}` : ""}`;
     if (args.observe !== true) return text(id, note);
-    const shot = await runOnBox([ENV, GEOMETRY, ensureRemoteCuaCommand(), captureBlock()].join("; "), 60_000);
+    const shot = await runOnBox([ENV, GEOMETRY, captureBlock()].join("; "), 60_000);
     return observed(id, note, await frameFrom(shot));
   }
   if (name === "open_url") {
@@ -1005,7 +947,6 @@ async function call(id: unknown, name: string, args: any) {
       CHROME_PROFILE_SETUP,
       `(google-chrome ${CHROME_DEBUG_FLAGS} ${q} || chromium ${CHROME_DEBUG_FLAGS} ${q} || chromium-browser ${CHROME_DEBUG_FLAGS} ${q} || xdg-open ${q}) >/dev/null 2>&1 &`,
       'for i in 1 2 3 4 5 6 7 8 9 10 11 12; do xdotool search --onlyvisible --class "chrom" >/dev/null 2>&1 && break; sleep 0.25; done',
-      ensureRemoteCuaCommand(),
       observe ? captureBlock(600) : "true",
     ].join("; ");
     observations.noteAction();

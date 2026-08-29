@@ -3,7 +3,7 @@
 // handler remains transport-neutral so the IPC adapter and focused route
 // tests share one implementation.
 import { randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
-import { existsSync, readFileSync, unlinkSync } from "node:fs";
+import { readFileSync, unlinkSync } from "node:fs";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { isIP } from "node:net";
 import { extname, join } from "node:path";
@@ -33,35 +33,18 @@ import { parseBotProfilePatch } from "./bot-profile.ts";
 import { groupTurnCwd } from "./room-cwd.ts";
 import { RoomTurnDeadline, RoomTurnStallRegistry, roomTurnTimeoutMessage } from "./room-turn-timeout.ts";
 import * as box from "./box.ts";
-import { cloudBackendChangeError, vpsAliasChangeError } from "./cloud-backend.ts";
 import * as composio from "./composio.ts";
 import { chiefOfStaffSystemPrompt } from "./chief-of-staff.ts";
-import {
-  containerComputerAction,
-  containerComputerExists,
-  containerComputerMcp,
-  containerComputerScreenshot,
-  containerComputerStatus,
-  containerRuntimeStatus,
-  perBotLocalVmTarget,
-  SHARED_LOCAL_VM_TARGET,
-  setupCommands,
-  type LocalVmTarget,
-  type Runtime,
-} from "./container-computer.ts";
 import {
   ensureDirs,
   instanceConfigs,
   loadConfig,
-  localVmMaxInstances,
-  localVmMode,
   parseConfigPatch,
   roomTurnTimeoutMinutes,
   saveConfig,
   skillRecorderEnabled,
   syncCredentialEnv,
   withInstanceCli,
-  vpsSshAlias,
   DATA_DIR,
   EVENTS_DIR,
   NATIVE_DIR,
@@ -125,11 +108,7 @@ import {
   skillsSystemPrompt,
 } from "./skills.ts";
 import { fetchSkillFromSource } from "./skill-fetch.ts";
-import { readCuaConnection } from "./local-computer.ts";
-import { LocalVmIdleTimer } from "./local-vm-idle.ts";
-import { LocalVmLease, LocalVmLeasePool } from "./local-vm-lease.ts";
 import { RepeatDetector, callKey } from "./repeat-detector.ts";
-import * as vps from "./vps-computer.ts";
 import { RoutineManager, type RoutineRunOn, type RoutineRunTrigger } from "./routines.ts";
 import { fetchBotDirectory, matchDirectoryBots, type MatchedDirectoryBot } from "./bot-directory.ts";
 import { scoutProject, suggestTeam } from "./project-scout.ts";
@@ -144,7 +123,6 @@ import { SPAWNED_PROXIES } from "./proxy-paths.ts";
 import { loadBundledSkills, loadUserSkills, mergeSkills, renderSkillInstructions, selectBundledSkills } from "./skill-library.ts";
 import { installedPlaybookInstructions } from "./installed-playbooks.ts";
 import { createBotPackageExport } from "./package-export.ts";
-import { shouldMountLocalComputer } from "./local-routing.ts";
 
 const PORT = Number(process.env.OMB_PORT || process.env.OGB_PORT || 8799);
 const WEBHOOK_PORT = Number(process.env.OMB_WEBHOOK_PORT || PORT + 1);
@@ -663,7 +641,6 @@ const watchdog = new TurnWatchdog({
       const currentBot = store.bot(turn.botId);
       if (currentBot?.busy) {
         stopScreenPoller(currentBot.id);
-        if (activeVpsThreads.get(currentBot.id) === turn.threadId) activeVpsThreads.delete(currentBot.id);
         store.setActivity(currentBot.id, "idle");
         // The grace fallback replaces a missing turn.completed event. Release
         // every kind of work that may have queued behind this bot, including
@@ -722,80 +699,8 @@ function isUnattended(botId?: string | null): boolean {
   return true;
 }
 let routines: RoutineManager | null = null;
-const localVmOwnerBusy = (botId: string) => store.bot(botId)?.busy === true;
-const localVmLeases = new LocalVmLeasePool(30 * 60_000);
-const localVmLifecycleBusy = new Set<string>();
-const localVmThreadTargets = new Map<string, LocalVmTarget>();
-const localVmActiveThreads = new Map<string, string>();
-let localVmImageBusy = false;
-let localVmProvisionBusy = false;
-let localVmModeChangeBusy = false;
-const activeVpsThreads = new Map<string, string>();
-const LOCAL_VM_IDLE_MS = 8 * 60 * 60_000;
-const localVmIdles = new Map<string, LocalVmIdleTimer>();
-
-function localVmTargetForBot(botId: string): LocalVmTarget {
-  return localVmMode(cfg) === "per-bot" ? perBotLocalVmTarget(botId) : SHARED_LOCAL_VM_TARGET;
-}
-
-function localVmLeaseFor(target: LocalVmTarget): LocalVmLease {
-  return localVmLeases.forTarget(target.key);
-}
-
-function localVmIdleFor(target: LocalVmTarget): LocalVmIdleTimer {
-  let idle = localVmIdles.get(target.key);
-  if (idle) return idle;
-  idle = new LocalVmIdleTimer(
-    LOCAL_VM_IDLE_MS,
-    () => localVmImageBusy || localVmLifecycleBusy.has(target.key) || localVmActiveThreads.has(target.key),
-    async () => {
-      localVmLifecycleBusy.add(target.key);
-      try {
-        const status = await containerComputerStatus(undefined, undefined, target);
-        // The desktop leaves a stale X lock after stop, so idle cleanup
-        // removes only the disposable container. Its target-specific durable
-        // workspace and the shared prepared image remain.
-        if (status.container === "running") {
-          await containerComputerAction("remove", undefined, undefined, target);
-        }
-      } finally {
-        localVmLifecycleBusy.delete(target.key);
-      }
-    },
-  );
-  localVmIdles.set(target.key, idle);
-  return idle;
-}
-
-function releaseLocalVmThread(threadId: string): void {
-  const target = localVmThreadTargets.get(threadId);
-  if (!target) return;
-  localVmLeaseFor(target).release(threadId);
-  if (localVmActiveThreads.get(target.key) === threadId) localVmActiveThreads.delete(target.key);
-  localVmThreadTargets.delete(threadId);
-}
-
-// A running VM may have survived an app/server restart. Start its idle
-// backstop even if nobody opens Settings or begins a turn this session.
-void (async () => {
-  const targets = localVmMode(cfg) === "per-bot"
-    ? store.bots.filter((bot) => bot.computer === "vm").map((bot) => perBotLocalVmTarget(bot.id))
-    : [SHARED_LOCAL_VM_TARGET];
-  for (const target of targets) {
-    const status = await containerComputerStatus(undefined, undefined, target).catch(() => null);
-    if (status?.container === "running") localVmIdleFor(target).touch();
-  }
-})();
 
 bus.subscribe((event: RuntimeEvent) => {
-  const localVmTarget = localVmThreadTargets.get(event.threadId);
-  if (localVmTarget) {
-    localVmLeaseFor(localVmTarget).touch(event.threadId);
-    localVmIdleFor(localVmTarget).touch();
-  }
-  if (event.type === "turn.completed") {
-    releaseLocalVmThread(event.threadId);
-  }
   broadcast({ kind: "runtime", event });
   const routineRun = routines?.handleRuntimeEvent(event) ?? null;
   const bot = store.botByThread(event.threadId);
@@ -869,7 +774,7 @@ bus.subscribe((event: RuntimeEvent) => {
       const asker = bot ?? (speaker ? store.bot(speaker.botId) : undefined);
       const unattended = permission && asker && event.requestId ? isUnattended(asker.id) : false;
       const verdict = permission && asker && event.requestId
-        ? autoVerdict(asker, event.tool, event.summary, { unattended, scope: event.approvalScope })
+        ? autoVerdict(asker, event.tool, event.summary, { unattended })
         : null;
       if (verdict?.approve && asker && event.requestId) {
         const settled = verdict.approve;
@@ -918,11 +823,8 @@ bus.subscribe((event: RuntimeEvent) => {
                 options: ["Allow", "Deny"],
                 requestId,
                 tool,
-                allowKey: event.approvalScope
-                  ? undefined
-                  : approvalKey(tool, summary, event.approvalScope),
+                allowKey: approvalKey(tool, summary),
                 held: "Auto mode couldn't answer this one.",
-                approvalScope: event.approvalScope,
               },
             });
             askMessageByRequest.set(`${event.threadId}:${requestId}`, card.id);
@@ -946,11 +848,7 @@ bus.subscribe((event: RuntimeEvent) => {
         kind: "options",
         card: {
           title:
-            permission && event.approvalScope === "local-computer"
-              ? "Local computer approval"
-              : permission
-                ? "Approval needed"
-                : "Your bot has a question",
+            permission ? "Approval needed" : "Your bot has a question",
           subtitle: event.summary,
           options: event.choices?.length ? event.choices : permission ? ["Allow", "Deny"] : [],
           requestId: event.requestId,
@@ -958,15 +856,12 @@ bus.subscribe((event: RuntimeEvent) => {
           // the exact grant "always allow" would remember, decided here so
           // client and server can never derive it differently
           allowKey:
-            permission && !event.approvalScope
-              ? approvalKey(event.tool, event.summary, event.approvalScope)
-              : undefined,
+            permission ? approvalKey(event.tool, event.summary) : undefined,
           // in auto mode a card can only mean the guard stopped it — say so
           held:
             permission && asker?.autoApprove
               ? "This looked destructive, so auto mode stopped to ask."
               : undefined,
-          approvalScope: event.approvalScope,
         },
       });
       if (event.requestId) askMessageByRequest.set(`${event.threadId}:${event.requestId}`, message.id);
@@ -1048,10 +943,6 @@ bus.subscribe((event: RuntimeEvent) => {
       // tally is not the right home for a shared room's spend, so only
       // 1:1 task turns are tallied for now.
       if (bot) {
-        const vpsTurn = activeVpsThreads.get(bot.id) === event.threadId;
-        const clearVpsTurn = () => {
-          if (activeVpsThreads.get(bot.id) === event.threadId) activeVpsThreads.delete(bot.id);
-        };
         // bank what this turn spent before the bot broadcast carries the
         // task list to every window. The driver's own per-turn figure
         // (turn.completed.usage) is authoritative; a driver that only
@@ -1080,9 +971,7 @@ bus.subscribe((event: RuntimeEvent) => {
             if (frame && store.bot(bot.id)) {
               pushMessage({ role: "bot", kind: "screen", png: frame.png, mime: frame.mime });
             }
-          }).finally(clearVpsTurn);
-        } else if (vpsTurn) {
-          clearVpsTurn();
+          });
         }
       }
       const speaker = groupSpeakers.get(event.threadId);
@@ -1539,99 +1428,17 @@ async function startTurn(
       const dwebUrl = process.env.DWEB_URL?.trim();
       if (dwebUrl) integrations.dweb = { url: dwebUrl };
       const wants = opts?.runOn === "cloud" ? "cloud" : bot.computer; // cloud routine overrides the MAUS default
-      // Cloud routines always use Box/BoxAgent. The per-bot backend applies
-      // only to ordinary turns that mount a computer into the local agent.
-      const cloudBackend = opts?.runOn === "cloud" || bot.cloudBackend !== "vps" ? "box" : "vps";
       const mountsComputerMcp = instance.adapter.capabilities.computerMcp === true;
       const mountsCloudComputer = mountsComputerMcp || instance.driverKind === "boxAgent";
-      const mountsLocalComputer = instance.adapter.capabilities.localComputerMcp === true;
       let previewCapture: (() => Promise<{ png: string; format: string }>) | null = null;
-      let computerKind: "box" | "vps" | "vm" | "local" | null = null;
-      let autoVpsProblem: string | null = null;
-
-      // Explicit destinations are strict. In particular, Local VM must never
-      // fall through to host CUA and accidentally click on the user's Mac.
-      if (wants === "vm") {
-        if (!mountsComputerMcp || instance.driverKind === "boxAgent") {
-          throw new Error("this model engine cannot use the Local VM — choose Claude or an ACP engine, or select another computer destination");
-        }
-        const localVmTarget = localVmTargetForBot(bot.id);
-        if (localVmImageBusy || localVmModeChangeBusy || localVmLifecycleBusy.has(localVmTarget.key)) {
-          throw new Error("this Local VM is being started, stopped, or replaced — wait for setup to finish");
-        }
-        // Claim before the first await. The lifecycle route performs its
-        // matching check synchronously, so neither side can enter while the
-        // other is between inspection and mutation.
-        if (!localVmLeaseFor(localVmTarget).claim(threadId, bot.id, localVmOwnerBusy)) {
-          throw new Error("this Local VM is already being used by another turn — wait for that turn to finish");
-        }
-        localVmThreadTargets.set(threadId, localVmTarget);
-        localVmActiveThreads.set(localVmTarget.key, threadId);
-        localVmIdleFor(localVmTarget).touch();
-        const localVm = await containerComputerStatus(undefined, undefined, localVmTarget);
-        if (!localVm.ready || !localVm.runtime) {
-          throw new Error(`${localVm.problem ?? "the Local VM is not ready"} (App Settings → Local VM)`);
-        }
-        integrations.localComputer = containerComputerMcp(
-          localVm.runtime,
-          controlIntegration(bot.id),
-          localVmTarget,
-        );
-        computerKind = "vm";
-      } else if (wants === "local") {
-        if (!shouldMountLocalComputer({
-          requested: "local",
-          hostPlatform: process.platform,
-          providerSupportsLocal: mountsLocalComputer,
-        })) {
-          throw new Error("this model engine cannot control this computer — choose Claude or an ACP engine, or select another destination");
-        }
-        const cua = readCuaConnection();
-        if (!cua) throw new Error("CUA Driver is not ready for this computer — check permissions and restart Roundtable");
-        integrations.localComputer = cua;
-        computerKind = "local";
+      let computerKind: "box" | null = null;
+      if (wants === "vm" || wants === "local") {
+        throw new Error("this computer destination is no longer supported");
       }
 
-      // A VPS is a local-agent computer mount, never a remote agent runner.
-      // Explicit Cloud may prepare/start it. Auto remains read-only unless
-      // the person explicitly opted this bot into remote lifecycle actions.
-      if ((wants === "cloud" || wants === undefined) && cloudBackend === "vps") {
-        const unsupported = vps.vpsDriverError(instance.driverKind, mountsComputerMcp);
-        if (unsupported && wants === "cloud") throw new Error(unsupported);
-        if (unsupported && wants === undefined) autoVpsProblem = unsupported;
-        if (!unsupported) {
-          activeVpsThreads.set(bot.id, threadId);
-          const remote = wants === "cloud" || bot.autoStartVps
-            ? await vps.vpsComputerAction("provision", cfg, bot.id)
-            : await vps.inspectVpsForAuto(cfg, bot.id);
-          if (remote?.ready && remote.sshAlias) {
-            const targetCfg = { ...cfg, vps: { sshAlias: remote.sshAlias } };
-            const vpsMcp = vps.vpsComputerMcp(targetCfg, bot.id, remote.container_id ?? undefined);
-            const vpsControl = controlIntegration(bot.id);
-            integrations.localComputer = {
-              ...vpsMcp,
-              env: {
-                ...vpsMcp.env,
-                OMB_CONTROL_PIPE: vpsControl.pipe,
-                OMB_CONTROL_PATH: vpsControl.path,
-                OMB_CONTROL_TOKEN: vpsControl.token,
-              },
-            };
-            computerKind = "vps";
-            previewCapture = () => vps.vpsComputerScreenshot(targetCfg, bot.id);
-          } else {
-            activeVpsThreads.delete(bot.id);
-            if (wants === "cloud") {
-              throw new Error(remote?.problem ?? "the VPS computer could not be created or reached");
-            }
-            autoVpsProblem = remote?.problem ?? "the VPS computer could not be reached";
-          }
-        }
-      }
-
-      // Cloud is also strict when explicitly selected. Auto (unset) reuses an
-      // existing cloud box, then falls back to host CUA without provisioning.
-      if ((wants === "cloud" || wants === undefined) && cloudBackend === "box" && box.boxConfigured(cfg)) {
+      // Cloud is strict when explicitly selected. Auto (unset) reuses an
+      // existing cloud box without provisioning.
+      if ((wants === "cloud" || wants === undefined) && box.boxConfigured(cfg)) {
         if (!mountsCloudComputer && wants === "cloud") {
           throw new Error("this model engine cannot use computer tools — choose Claude, an ACP engine, or the Computer engine");
         }
@@ -1664,42 +1471,11 @@ async function startTurn(
           }
         }
       }
-      if (wants === "cloud" && cloudBackend === "box" && !box.boxConfigured(cfg)) {
-        throw new Error("Cloud box is not configured — add a Box API key or choose Local VM");
+      if (wants === "cloud" && !box.boxConfigured(cfg)) {
+        throw new Error("Cloud box is not configured — add a Box API key");
       }
-      if (wants === "cloud" && cloudBackend === "box" && !integrations.computer) {
+      if (wants === "cloud" && !integrations.computer) {
         throw new Error("the cloud computer could not be created or reached");
-      }
-
-      // Auto-only host fallback. Electron owns cua-driver/TCC attribution;
-      // the harness only reads its already-running connection descriptor.
-      if (
-        !integrations.computer &&
-        !integrations.localComputer &&
-        wants === undefined &&
-        shouldMountLocalComputer({
-          requested: undefined,
-          hostPlatform: process.platform,
-          providerSupportsLocal: mountsLocalComputer,
-        })
-      ) {
-        const cua = readCuaConnection();
-        if (cua) {
-          integrations.localComputer = cua;
-          computerKind = "local";
-        }
-      }
-      if (
-        wants === undefined &&
-        cloudBackend === "vps" &&
-        !integrations.computer &&
-        !integrations.localComputer &&
-        autoVpsProblem
-      ) {
-        const hint = bot.autoStartVps
-          ? "Check the VPS connection in App Settings → Connections."
-          : "Open Computer and enable Start VPS automatically, or choose Cloud to start it manually.";
-        throw new Error(`${autoVpsProblem}. ${hint}`);
       }
       // Agent control tools include peer comms and the secure credential
       // request card. A comms-invoked turn (depth ≥ cap) gets none — hard recursion
@@ -1738,8 +1514,6 @@ async function startTurn(
         ? " If a supported API key is missing, use request_credential to show the secure in-app card. Never ask the user to paste credentials into chat."
         : "";
 
-      // (activeVpsThreads was already claimed above, before the provision or
-      // reuse await, so the backend guards saw this turn the whole time.)
       watchdog.watch(threadId, bot.id);
       await instance.adapter.sendTurn({
         threadId,
@@ -1753,17 +1527,9 @@ async function startTurn(
         transcript,
         system:
           persona +
-          (computerKind === "vm"
-            ? localVmMode(cfg) === "per-bot"
-              ? " You have your own isolated Cua sandbox: a Linux desktop in a container reserved for this bot. Only /home/cua/workspace is durable; save downloads, repositories, working files, and browser profiles there because everything else inside the VM is disposable. No other host folder is mounted. Use the computer tools for desktop, accessibility, window, and shell work. Inspect the desktop state before acting, prefer accessibility targets over raw coordinates, and work carefully."
-              : " You have a shared, isolated Cua sandbox: a Linux desktop in a container on this machine. Only /home/cua/workspace is durable; save downloads, repositories, working files, and browser profiles there because everything else inside the VM is disposable. No other host folder is mounted. Use the computer tools for desktop, accessibility, window, and shell work. Inspect the desktop state before acting, prefer accessibility targets over raw coordinates, and work carefully."
-            : computerKind === "box" && instance.driverKind !== "boxAgent"
+          (computerKind === "box" && instance.driverKind !== "boxAgent"
             ? " You have your own cloud computer. In Chrome, prefer browser_snapshot with browser_click/browser_fill for semantic, trusted actions; use screenshot/click/type_text for visual or non-browser UI, open_url for navigation, and computer_exec for Linux tasks. Every action already returns the resulting screen, so don't follow it with screenshot; batch predictable pixel actions with computer_batch."
-            : computerKind === "vps"
-              ? " You have your own self-hosted remote Linux computer through the official Cua tools. Its filesystem is disposable: everything on it is wiped whenever its container is recreated, so keep long-lived work somewhere durable — push it to a remote, or hand the results back in chat — instead of leaving it only on that computer. Inspect the desktop state before acting, prefer accessibility targets over raw coordinates, and act carefully."
-              : computerKind === "local"
-              ? " You can act on the user's computer through the computer tools — take a screenshot or read the desktop state first, prefer accessibility actions over raw coordinates, and act carefully."
-              : "") +
+            : "") +
           (computerKind
             ? " At a sign-in, password, MFA, CAPTCHA, or other protected-input step, stop and ask the user to complete it on the visible computer. Never type their password or ask them to paste a password or one-time code into chat."
             : "") +
@@ -1801,8 +1567,6 @@ async function startTurn(
         startScreenPoller(bot.id, previewCapture, { screenIsTheWork: instance.driverKind === "boxAgent" });
       }
     } catch (e) {
-      releaseLocalVmThread(threadId);
-      if (activeVpsThreads.get(bot.id) === threadId) activeVpsThreads.delete(bot.id);
       watchdog.settle(threadId);
       turnUsage.delete(threadId);
       const message = e instanceof Error ? e.message : String(e);
@@ -2520,39 +2284,6 @@ function stderrOf(err: unknown): string {
   return typeof s === "string" ? s : Buffer.isBuffer(s) ? s.toString("utf8") : "";
 }
 
-async function localVmPayload(target: LocalVmTarget) {
-  const status = await containerComputerStatus(undefined, undefined, target);
-  return {
-    ...status,
-    commands: setupCommands(status.runtime, process.platform, target),
-    idle_timeout_ms: LOCAL_VM_IDLE_MS,
-    mode: localVmMode(cfg),
-    max_instances: localVmMaxInstances(cfg),
-  };
-}
-
-async function existingPerBotLocalVmCount(runtime: Runtime) {
-  const targets = [...new Map(store.bots.map((bot) => {
-    const target = perBotLocalVmTarget(bot.id);
-    return [target.key, target] as const;
-  })).values()];
-  const existing = await Promise.all(targets.map((target) => containerComputerExists(runtime, target)));
-  return existing.filter(Boolean).length;
-}
-
-async function perBotLocalVmCountForModeChange(): Promise<number | null> {
-  const targets = [...new Map(store.bots.map((bot) => {
-    const target = perBotLocalVmTarget(bot.id);
-    return [target.key, target] as const;
-  })).values()];
-  if (targets.length === 0) return 0;
-  const runtime = await containerRuntimeStatus();
-  if (!runtime.runtime || !runtime.daemonUp) {
-    return targets.some((target) => existsSync(target.workspaceDir)) ? null : 0;
-  }
-  return existingPerBotLocalVmCount(runtime.runtime);
-}
-
 function configStatus() {
   return {
     xai: { configured: Boolean(cfg.xai?.key) },
@@ -2561,7 +2292,6 @@ function configStatus() {
       mode: composio.connectionMode(cfg),
     },
     box: { configured: Boolean(cfg.box?.token) },
-    vps: { configured: Boolean(vpsSshAlias(cfg)), sshAlias: vpsSshAlias(cfg) ?? "" },
     opencodeGo: { configured: Boolean(cfg.opencodeGo?.apiKey) },
     // the chosen voice is a setting, not a secret; the key is reported the
     // same configured-or-not way as every other credential
@@ -2570,10 +2300,6 @@ function configStatus() {
     // not a secret — the sidebar shows it
     profile: { name: cfg.profile?.name ?? "", email: cfg.profile?.email ?? "" },
     rooms: { turnTimeoutMinutes: roomTurnTimeoutMinutes(cfg) },
-    localVm: {
-      mode: localVmMode(cfg),
-      maxInstances: localVmMaxInstances(cfg),
-    },
     features: { skillRecorder: skillRecorderEnabled(cfg) },
   };
 }
@@ -2589,12 +2315,7 @@ async function reloadProviders() {
   // async under the hood), stranding the bot busy — and its screen poller —
   // forever. Settle anything still marked busy.
   for (const b of store.bots.filter((b) => b.busy)) {
-    const vmThread = [...localVmThreadTargets.entries()].find(([, target]) =>
-      localVmLeaseFor(target).current(localVmOwnerBusy)?.botId === b.id
-    )?.[0];
-    if (vmThread) releaseLocalVmThread(vmThread);
     stopScreenPoller(b.id);
-    activeVpsThreads.delete(b.id);
     finalizeDelegationWatch(
       b.threadId,
       false,
@@ -4045,7 +3766,7 @@ export async function handleRequest(req: IncomingMessage, res: ServerResponse): 
           else section = trimmed;
         }
       }
-      for (const key of ["modelSelection", "unread", "computer", "cloudBackend", "color", "mascotExpression", "pinned", "hidden"] as const) {
+      for (const key of ["modelSelection", "unread", "computer", "color", "mascotExpression", "pinned", "hidden"] as const) {
         if (body[key] !== undefined) patch[key] = body[key];
       }
       // one pinned message per thread; null/"" clears. The id is not
@@ -4066,23 +3787,12 @@ export async function handleRequest(req: IncomingMessage, res: ServerResponse): 
       }
       if (
         body.computer !== undefined &&
-        !["cloud", "vm", "local", "off"].includes(String(body.computer))
+        !["cloud", "off"].includes(String(body.computer))
       ) {
-        return json(res, 400, { error: "computer must be cloud, vm, local, or off" });
-      }
-      if (body.cloudBackend !== undefined && !["box", "vps"].includes(String(body.cloudBackend))) {
-        return json(res, 400, { error: "cloudBackend must be box or vps" });
-      }
-      if (body.autoStartVps !== undefined) {
-        if (typeof body.autoStartVps !== "boolean") return json(res, 400, { error: "autoStartVps must be true or false" });
-        patch.autoStartVps = body.autoStartVps;
+        return json(res, 400, { error: "computer must be cloud or off" });
       }
       if (body.chiefOfStaff !== undefined && typeof body.chiefOfStaff !== "boolean") {
         return json(res, 400, { error: "chiefOfStaff must be true or false" });
-      }
-      if (body.cloudBackend !== undefined) {
-        const backendError = cloudBackendChangeError(Boolean(existingBot?.busy), activeVpsThreads.has(m[1]));
-        if (backendError) return json(res, 409, { error: backendError });
       }
       if (body.cwd !== undefined) {
         const checked = validateBotCwd(body.cwd);
@@ -4099,20 +3809,6 @@ export async function handleRequest(req: IncomingMessage, res: ServerResponse): 
         if (typeof body.autoApprove !== "boolean") return json(res, 400, { error: "autoApprove must be true or false" });
         patch.autoApprove = body.autoApprove;
       }
-      // "Auto on this Mac" hands a bot the user's real session, so the grant
-      // must prove a human saw the warning. The desktop dialog is the only
-      // caller that sends acknowledgeLocalAuto; without it a PATCH that would
-      // create the combination — a bot curling the loopback API from a tool
-      // call, a script, a stale client — is refused. The renderer dialog
-      // alone is not a boundary; this check is.
-      const wantsComputer = body.computer !== undefined ? body.computer : existingBot?.computer;
-      const wantsAuto = body.autoApprove !== undefined ? body.autoApprove : existingBot?.autoApprove === true;
-      const alreadyGranted = existingBot?.computer === "local" && existingBot?.autoApprove === true;
-      if (wantsComputer === "local" && wantsAuto === true && !alreadyGranted && body.acknowledgeLocalAuto !== true) {
-        return json(res, 400, {
-          error: "Auto mode on this computer requires confirming the warning first (acknowledgeLocalAuto)",
-        });
-      }
       if (body.approvePeerComms !== undefined) {
         if (typeof body.approvePeerComms !== "boolean") {
           return json(res, 400, { error: "approvePeerComms must be true or false" });
@@ -4124,12 +3820,6 @@ export async function handleRequest(req: IncomingMessage, res: ServerResponse): 
           return json(res, 400, { error: "alwaysAllow must be a list of tool keys" });
         }
         patch.alwaysAllow = [...new Set(body.alwaysAllow as string[])].slice(0, 200);
-      }
-      if (existingBot?.computer === "local" && body.computer !== undefined && body.computer !== "local") {
-        await registry
-          .get(existingBot.modelSelection.instanceId)
-          ?.adapter.interruptTurn(existingBot.threadId)
-          .catch(() => {});
       }
       const chiefMovedSections =
         Boolean(existingBot?.chiefOfStaff) &&
@@ -4146,43 +3836,13 @@ export async function handleRequest(req: IncomingMessage, res: ServerResponse): 
       return json(res, 200, { bot: wireBot(store.bot(bot.id)!) });
     }
 
-    if (method === "POST" && path === "/api/local-computer/interrupt") {
-      if (!String(req.headers["content-type"] ?? "").toLowerCase().startsWith("application/json")) {
-        return json(res, 415, { error: "content-type must be application/json" });
-      }
-      await Promise.allSettled(
-        store.bots
-          .filter((bot) => bot.computer === "local")
-          .map((bot) =>
-            registry.get(bot.modelSelection.instanceId)?.adapter.interruptTurn(bot.threadId),
-          )
-          .filter((turn): turn is Promise<void> => Boolean(turn)),
-      );
-      return json(res, 200, { ok: true });
-    }
     m = path.match(/^\/api\/bots\/([\w-]+)$/);
     if (m && method === "DELETE") {
       const bot = store.bot(m[1]);
       if (!bot) return json(res, 404, { error: "no such bot" });
-      if (localVmMode(cfg) === "per-bot") {
-        const target = perBotLocalVmTarget(bot.id);
-        if (localVmActiveThreads.has(target.key) || localVmLifecycleBusy.has(target.key)) {
-          return json(res, 409, { error: "stop this bot's Local VM turn or setup action before deleting the bot" });
-        }
-        const vm = await containerComputerStatus(undefined, undefined, target);
-        if (!vm.daemonUp && existsSync(target.workspaceDir)) {
-          return json(res, 409, {
-            error: "start the container runtime and delete this bot's Local VM before deleting the bot",
-          });
-        }
-        if (vm.container !== "missing") {
-          return json(res, 409, { error: "delete this bot's Local VM from its Computer panel before deleting the bot" });
-        }
-      }
       // a running turn dies with its bot
       await registry.get(bot.modelSelection.instanceId)?.adapter.interruptTurn(bot.threadId).catch(() => {});
       stopScreenPoller(bot.id);
-      activeVpsThreads.delete(bot.id);
       routines!.disableForBot(bot.id);
       webhooks.disableForBot(bot.id);
       lastReply.delete(bot.threadId);
@@ -4191,9 +3851,6 @@ export async function handleRequest(req: IncomingMessage, res: ServerResponse): 
       cancelPeerApprovalsFor(bot.id);
       discardDelegations(commsBus, bot.threadId);
       computerControl.forget(bot.id);
-      const target = perBotLocalVmTarget(bot.id);
-      localVmIdles.get(target.key)?.cancel();
-      localVmIdles.delete(target.key);
       store.deleteBot(bot.id);
       for (const dir of [EVENTS_DIR, NATIVE_DIR]) {
         try {
@@ -4550,125 +4207,6 @@ export async function handleRequest(req: IncomingMessage, res: ServerResponse): 
       return json(res, 200, { bot: fresh });
     }
 
-    // what the user's machine can host: which runtime is installed, whether
-    // its daemon is up, and whether the desktop image and container exist
-    if (method === "GET" && path === "/api/local-computer") {
-      return json(res, 200, await localVmPayload(SHARED_LOCAL_VM_TARGET));
-    }
-    m = path.match(/^\/api\/local-computer\/(pull|run|start|stop|remove)$/);
-    if (m && method === "POST") {
-      // Requiring JSON makes these localhost lifecycle mutations non-simple
-      // browser requests. A hostile web page cannot submit them with a form,
-      // and its cross-origin JSON request is stopped by the browser preflight
-      // because this server deliberately emits no CORS permission.
-      if (!String(req.headers["content-type"] ?? "").toLowerCase().startsWith("application/json")) {
-        return json(res, 415, { error: "content-type must be application/json" });
-      }
-      const action = z.enum(["pull", "run", "start", "stop", "remove"]).parse(m[1]);
-      if (localVmImageBusy || localVmModeChangeBusy || localVmLifecycleBusy.has(SHARED_LOCAL_VM_TARGET.key)) {
-        return json(res, 409, { error: "another Local VM setup action is still running" });
-      }
-      if (localVmMode(cfg) === "per-bot" && action === "run") {
-        return json(res, 409, { error: "Per-bot mode creates each desktop from that bot's Computer panel" });
-      }
-      const vmOwner = localVmLeaseFor(SHARED_LOCAL_VM_TARGET).current(localVmOwnerBusy);
-      if (vmOwner && (action === "stop" || action === "remove" || action === "run")) {
-        return json(res, 409, { error: "the Local VM is being used by a bot — stop that turn first" });
-      }
-      if (action === "pull") localVmImageBusy = true;
-      else localVmLifecycleBusy.add(SHARED_LOCAL_VM_TARGET.key);
-      try {
-        const status = await containerComputerAction(action, undefined, undefined, SHARED_LOCAL_VM_TARGET);
-        if (action === "run" || action === "start") localVmIdleFor(SHARED_LOCAL_VM_TARGET).touch();
-        if (action === "stop" || action === "remove") localVmIdleFor(SHARED_LOCAL_VM_TARGET).cancel();
-        return json(res, 200, {
-          ...status,
-          commands: setupCommands(status.runtime, process.platform, SHARED_LOCAL_VM_TARGET),
-          idle_timeout_ms: LOCAL_VM_IDLE_MS,
-          mode: localVmMode(cfg),
-          max_instances: localVmMaxInstances(cfg),
-        });
-      } finally {
-        if (action === "pull") localVmImageBusy = false;
-        else localVmLifecycleBusy.delete(SHARED_LOCAL_VM_TARGET.key);
-      }
-    }
-    if (method === "POST" && path === "/api/local-computer/screenshot") {
-      localVmIdleFor(SHARED_LOCAL_VM_TARGET).touch();
-      return json(res, 200, {
-        image: await containerComputerScreenshot(undefined, undefined, SHARED_LOCAL_VM_TARGET),
-      });
-    }
-
-    m = path.match(/^\/api\/bots\/([\w-]+)\/local-computer$/);
-    if (m && method === "GET") {
-      const bot = store.bot(m[1]);
-      if (!bot) return json(res, 404, { error: "no such bot" });
-      return json(res, 200, await localVmPayload(localVmTargetForBot(bot.id)));
-    }
-    m = path.match(/^\/api\/bots\/([\w-]+)\/local-computer\/(run|stop|remove)$/);
-    if (m && method === "POST") {
-      if (!String(req.headers["content-type"] ?? "").toLowerCase().startsWith("application/json")) {
-        return json(res, 415, { error: "content-type must be application/json" });
-      }
-      const bot = store.bot(m[1]);
-      if (!bot) return json(res, 404, { error: "no such bot" });
-      const action = z.enum(["run", "stop", "remove"]).parse(m[2]);
-      const target = localVmTargetForBot(bot.id);
-      if (target.key === SHARED_LOCAL_VM_TARGET.key) {
-        return json(res, 409, { error: "Shared mode manages this desktop in App Settings → Local VM" });
-      }
-      if (localVmImageBusy || localVmModeChangeBusy || localVmLifecycleBusy.has(target.key)) {
-        return json(res, 409, { error: "this bot's Local VM setup action is still running" });
-      }
-      if (action === "run" && localVmProvisionBusy) {
-        return json(res, 409, { error: "another per-bot Local VM is being created — retry after it finishes" });
-      }
-      const vmOwner = localVmLeaseFor(target).current(localVmOwnerBusy);
-      if (vmOwner) return json(res, 409, { error: "this bot is using its Local VM — stop the turn first" });
-      // Fence this target, and the cross-target capacity decision for creates,
-      // before the first await so two requests cannot both pass the limit.
-      localVmLifecycleBusy.add(target.key);
-      if (action === "run") localVmProvisionBusy = true;
-      try {
-        if (action === "run") {
-          const before = await containerComputerStatus(undefined, undefined, target);
-          if (!before.runtime) return json(res, 409, { error: before.problem ?? "No container runtime is installed" });
-          if (!(await containerComputerExists(before.runtime, target))) {
-            const count = await existingPerBotLocalVmCount(before.runtime);
-            if (count >= localVmMaxInstances(cfg)) {
-              return json(res, 409, {
-                error: `The per-bot Local VM limit is ${localVmMaxInstances(cfg)} — delete an unused bot VM or raise the limit in App Settings`,
-              });
-            }
-          }
-        }
-        const status = await containerComputerAction(action, undefined, undefined, target);
-        if (action === "run") localVmIdleFor(target).touch();
-        if (action === "stop" || action === "remove") localVmIdleFor(target).cancel();
-        return json(res, 200, {
-          ...status,
-          commands: setupCommands(status.runtime, process.platform, target),
-          idle_timeout_ms: LOCAL_VM_IDLE_MS,
-          mode: localVmMode(cfg),
-          max_instances: localVmMaxInstances(cfg),
-        });
-      } finally {
-        if (action === "run") localVmProvisionBusy = false;
-        localVmLifecycleBusy.delete(target.key);
-      }
-    }
-    m = path.match(/^\/api\/bots\/([\w-]+)\/local-computer\/screenshot$/);
-    if (m && method === "POST") {
-      const bot = store.bot(m[1]);
-      if (!bot) return json(res, 404, { error: "no such bot" });
-      const target = localVmTargetForBot(bot.id);
-      localVmIdleFor(target).touch();
-      return json(res, 200, {
-        image: await containerComputerScreenshot(undefined, undefined, target),
-      });
-    }
-
     // Utility-process liveness and identity response used by diagnostics and
     // the packaged desktop smoke test.
     if (method === "GET" && path === "/api/health") {
@@ -4733,8 +4271,7 @@ export async function handleRequest(req: IncomingMessage, res: ServerResponse): 
     // the GUI app can't see) means every turn would fail, so the UI asks
     // before saving rather than registering a dead engine.
     if (method === "POST" && path === "/api/cli-test") {
-      // same gate as the local-VM lifecycle routes: this executes a local
-      // binary, so a hostile page must not be able to submit it as a simple
+      // This executes a local binary, so a hostile page must not be able to submit it as a simple
       // text/plain cross-origin request
       if (!String(req.headers["content-type"] ?? "").toLowerCase().startsWith("application/json")) {
         return json(res, 415, { error: "content-type must be application/json" });
@@ -4755,7 +4292,7 @@ export async function handleRequest(req: IncomingMessage, res: ServerResponse): 
     // driver default. Kills in-flight turns like any provider reload.
     const instancePatch = /^\/api\/instances\/([\w.-]+)$/.exec(path);
     if (method === "PATCH" && instancePatch) {
-      // same non-simple-request gate as the local-VM lifecycle routes
+      // Keep this a non-simple request so cross-origin forms cannot invoke it.
       if (!String(req.headers["content-type"] ?? "").toLowerCase().startsWith("application/json")) {
         return json(res, 415, { error: "content-type must be application/json" });
       }
@@ -4792,34 +4329,8 @@ export async function handleRequest(req: IncomingMessage, res: ServerResponse): 
       const patch = parseConfigPatch(body);
       if (!Object.keys(patch).length) return json(res, 400, { error: "nothing to save" });
       if (providerConfigBusy) return json(res, 409, { error: "provider settings are already being updated" });
-      if (patch.vps !== undefined) {
-        const currentAlias = vpsSshAlias(cfg);
-        const nextAlias = vpsSshAlias({ ...cfg, vps: patch.vps });
-        const aliasError = vpsAliasChangeError(currentAlias, nextAlias, activeVpsThreads.size > 0);
-        if (aliasError) return json(res, 409, { error: aliasError });
-      }
       providerConfigBusy = true;
-      const changingLocalVmMode = patch.localVm?.mode !== undefined && patch.localVm.mode !== localVmMode(cfg);
-      if (changingLocalVmMode) localVmModeChangeBusy = true;
       try {
-        if (changingLocalVmMode) {
-          if (localVmActiveThreads.size > 0 || localVmLifecycleBusy.size > 0 || localVmImageBusy) {
-            return json(res, 409, { error: "stop Local VM turns and setup actions before changing the Local VM isolation mode" });
-          }
-          if (localVmMode(cfg) === "per-bot" && patch.localVm?.mode === "shared") {
-            const existing = await perBotLocalVmCountForModeChange();
-            if (existing === null) {
-              return json(res, 409, {
-                error: "start the container runtime and delete every per-bot VM before switching to shared mode",
-              });
-            }
-            if (existing > 0) {
-              return json(res, 409, {
-                error: `delete the ${existing} per-bot Local VM${existing === 1 ? "" : "s"} before switching to shared mode`,
-              });
-            }
-          }
-        }
       // A project key is useful only if it can create/reuse the Session that
       // powers both the connections UI and the agent MCP. Validate it before
       // persisting, and save the non-secret ids needed to reuse that Session.
@@ -4877,7 +4388,7 @@ export async function handleRequest(req: IncomingMessage, res: ServerResponse): 
         syncCredentialEnv(patch);
         Object.assign(cfg, loadConfig());
       }
-      // Provider keys change the fleet. Profile, voice, VPS, and room timeout
+      // Provider keys change the fleet. Profile, voice, and room timeout
       // changes do not rebuild it: no driver reads them, and they should not
       // interrupt in-flight turns.
       const reloadKeys = Object.keys(patch).filter(
@@ -4885,9 +4396,7 @@ export async function handleRequest(req: IncomingMessage, res: ServerResponse): 
           key !== "profile" &&
           key !== "tts" &&
           key !== "imageGen" &&
-          key !== "vps" &&
           key !== "rooms" &&
-          key !== "localVm" &&
           key !== "features",
       );
       if (reloadKeys.length > 0) await reloadProviders();
@@ -4895,7 +4404,6 @@ export async function handleRequest(req: IncomingMessage, res: ServerResponse): 
       broadcast({ kind: "config", ...status });
       return json(res, 200, status);
       } finally {
-        if (changingLocalVmMode) localVmModeChangeBusy = false;
         providerConfigBusy = false;
       }
     }
@@ -5058,9 +4566,7 @@ export async function handleRequest(req: IncomingMessage, res: ServerResponse): 
     if (m && method === "GET") {
       const bot = store.bot(m[1]);
       if (!bot) return json(res, 404, { error: "no such bot" });
-      return bot.cloudBackend === "vps"
-        ? json(res, 200, { backend: "vps", ...(await vps.vpsComputerStatus(cfg, bot.id)) })
-        : json(res, 200, { backend: "box", ...(await box.boxStatus(cfg, bot.id)) });
+      return json(res, 200, { backend: "box", ...(await box.boxStatus(cfg, bot.id)) });
     }
     // Who is driving this bot's computer. GET is the panel's initial read;
     // POST take/release/dismiss-help are the person's three moves. The bot
@@ -5092,7 +4598,7 @@ export async function handleRequest(req: IncomingMessage, res: ServerResponse): 
       if (!String(req.headers["content-type"] ?? "").toLowerCase().startsWith("application/json")) {
         return json(res, 415, { error: "content-type must be application/json" });
       }
-      return json(res, 200, bot.cloudBackend === "vps" ? vps.closeVpsDesktopTunnel(bot.id) : { closed: false });
+      return json(res, 200, { closed: false });
     }
     m = path.match(/^\/api\/bots\/([\w-]+)\/computer\/(provision|join|sleep|exec|screenshot|remove)$/);
     if (m && method === "POST") {
@@ -5100,30 +4606,14 @@ export async function handleRequest(req: IncomingMessage, res: ServerResponse): 
       const bot = store.bot(botId);
       if (!bot) return json(res, 404, { error: "no such bot" });
       // Requiring JSON makes every computer mutation a non-simple browser
-      // request (same reasoning as the Local VM lifecycle routes above): a
+      // request: a
       // hostile page cannot submit it with a form, and its cross-origin JSON
       // request dies in the preflight this server never answers. Applied to
       // both backends — the Box branch runs commands too.
       if (!String(req.headers["content-type"] ?? "").toLowerCase().startsWith("application/json")) {
         return json(res, 415, { error: "content-type must be application/json" });
       }
-      if (bot.cloudBackend === "vps") {
-        if (m[2] === "exec") {
-          return json(res, 409, { error: "the VPS console is available to the bot through its scoped computer tools" });
-        }
-        if (m[2] === "provision" && bot.computer !== "cloud" && !bot.autoStartVps) {
-          return json(res, 409, { error: "Auto may start this VPS only after Start VPS automatically is enabled" });
-        }
-        if ((m[2] === "sleep" || m[2] === "remove") && (bot.busy || activeVpsThreads.has(botId))) {
-          return json(res, 409, { error: "the VPS computer is being used by this bot — interrupt the turn first" });
-        }
-        if (m[2] === "join") return json(res, 200, await vps.vpsComputerJoin(cfg, botId));
-        if (m[2] === "screenshot") return json(res, 200, await vps.vpsComputerScreenshot(cfg, botId));
-        const action = m[2] === "provision" ? "provision" : m[2] === "remove" ? "remove" : "stop";
-        return json(res, 200, await vps.vpsComputerAction(action, cfg, botId));
-      }
       if (m[2] === "remove") {
-        // Boxes sleep and wake; only the VPS backend has a container to remove.
         return json(res, 409, { error: "the cloud Box backend has no container to remove — use sleep instead" });
       }
       switch (m[2]) {
@@ -5179,8 +4669,6 @@ server?.listen(PORT, "127.0.0.1", () => {
 
 for (const signal of ["SIGINT", "SIGTERM"] as const) {
   process.on(signal, () => {
-    for (const idle of localVmIdles.values()) idle.cancel();
-    vps.closeAllVpsDesktopTunnels();
     watchdog.stop();
     routines?.stop();
     webhookIngress?.server.close();

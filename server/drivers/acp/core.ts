@@ -41,7 +41,7 @@ import type {
   ProviderErrorCode,
 } from "../../contracts.ts";
 import { newEventId, newId } from "../../contracts.ts";
-import { computerProxyEnv } from "../../container-computer.ts";
+import { computerProxyEnv } from "../../computer-proxy-env.ts";
 import { augmentedPath } from "../../env-path.ts";
 
 // Resolved from the server root, never relative to this file: bundling inlines
@@ -259,9 +259,7 @@ export function createAcpDriver(support: AcpSupport): ProviderDriver<AcpConfig> 
             env: acpEnv(composio.env),
           });
         }
-        // The bot's computer, mounted exactly like the Claude driver does.
-        // Cloud boxes use the REST adapter; host and sandbox Cua connections
-        // expose Cua Driver's official MCP server directly.
+        // The bot's Box computer, mounted exactly like the Claude driver does.
         const computer = turn.integrations?.computer;
         if (computer) {
           servers.push({
@@ -270,14 +268,6 @@ export function createAcpDriver(support: AcpSupport): ProviderDriver<AcpConfig> 
             args: [COMPUTER_PROXY_PATH],
             env: acpEnv({ ELECTRON_RUN_AS_NODE: "1", ...computerProxyEnv(computer) }),
           });
-        } else if (turn.integrations?.localComputer) {
-          const local = turn.integrations.localComputer;
-          servers.push({
-            name: "computer",
-            command: local.command,
-            args: local.args,
-            env: acpEnv(local.env ?? {}),
-          });
         }
         return servers;
       };
@@ -285,10 +275,6 @@ export function createAcpDriver(support: AcpSupport): ProviderDriver<AcpConfig> 
       const sendTurn = async (turn: SendTurnInput) => {
         const { threadId } = turn;
         if (active.has(threadId)) throw new Error("a turn is already running on this thread");
-        const controlsHost = turn.integrations?.localComputer?.scope === "local-computer";
-        if (controlsHost && config.fullAuto) {
-          throw new Error("local computer control requires interactive provider approvals");
-        }
         const turnId = newId();
         const cwd = turn.cwd ?? config.workspace ?? homedir();
         const env = childEnv();
@@ -423,7 +409,6 @@ export function createAcpDriver(support: AcpSupport): ProviderDriver<AcpConfig> 
               requestId,
               behavior: optionId && behavior === "allow" ? "allow" : "deny",
               source: optionId ? source : "system",
-              approvalScope: controlsHost ? "local-computer" : undefined,
             });
           };
           const timer = setTimeout(() => {
@@ -439,7 +424,6 @@ export function createAcpDriver(support: AcpSupport): ProviderDriver<AcpConfig> 
             requestType: "permission",
             tool,
             summary,
-            approvalScope: controlsHost ? "local-computer" : undefined,
           });
         };
 
@@ -741,7 +725,6 @@ export function createAcpDriver(support: AcpSupport): ProviderDriver<AcpConfig> 
             composioMcp: true,
             images: support.images !== false,
             effortLevels: support.effortLevels,
-            localComputerMcp: !config.fullAuto,
           },
           sendTurn,
           interruptTurn: async (threadId) => active.get(threadId)?.interrupt(),

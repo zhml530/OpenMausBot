@@ -4,7 +4,6 @@ import { randomUUID } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { startCua, stopCua, registerCuaIpc, setCuaStateListener } from "./cua.mjs";
 import { createAndroidDeviceController } from "./android-device.mjs";
 import { assemblyAICredential, mintAssemblyAIStreamingToken } from "./assemblyai.mjs";
 import { finishSpeech, startSpeech, stopSpeech } from "./speech.mjs";
@@ -38,7 +37,6 @@ const require = createRequire(import.meta.url);
 const { createDisplayMediaGuard, invokeDisplayMediaCallback, selectCaptureSource } = require(
   "./screen-preview.cjs",
 );
-const { STAGE_PREFIX: APPIMAGE_CUA_STAGE_PREFIX } = require("./cua-linux-bundle.cjs");
 const { desktopViewerUrl, sameDesktopViewerOrigin } = require("./desktop-viewer.cjs");
 const { normalizeUnreadCount, parseWindowState, resolveWindowState } = require("./window-state.cjs");
 
@@ -467,7 +465,6 @@ const ERROR_PAGE =
     `<body style="margin:0;display:flex;align-items:center;justify-content:center;height:100vh;background:#070707;color:#fcfcfc;font:15px -apple-system,system-ui"><div style="text-align:center;max-width:360px"><div style="font-size:40px">🐭</div><h2 style="font-weight:600;margin:12px 0 6px">Couldn't start the orchestration process</h2><p style="color:#fcfcfc99;line-height:1.5">Quit and reopen Roundtable. If it keeps happening, export diagnostics from the app menu.</p></div></body>`,
   );
 
-let cuaReady = Promise.resolve({ mode: "unavailable", reason: "not-started" });
 const androidDevice = createAndroidDeviceController({ resourcesPath: process.resourcesPath });
 const displayMediaGuard = createDisplayMediaGuard();
 let displayMediaRequestCount = 0;
@@ -724,21 +721,6 @@ function createWindow() {
         const result = await win.webContents.executeJavaScript(`
           (async () => {
             if (!window.ogb?.getCapabilities) throw new Error("desktop preload bridge is unavailable");
-            let crashPromise = null;
-            if (${JSON.stringify(process.env.OMB_SMOKE_CUA === "1")}) {
-              crashPromise = new Promise((resolve, reject) => {
-                const timeout = setTimeout(() => {
-                  unsubscribe?.();
-                  reject(new Error("timed out waiting for CUA crash invalidation"));
-                }, 10000);
-                const unsubscribe = window.ogb.onCapabilitiesChanged((next) => {
-                  if (next.localComputer.reasonCode !== "daemon-exited") return;
-                  clearTimeout(timeout);
-                  unsubscribe();
-                  resolve(next.localComputer.reasonCode);
-                });
-              });
-            }
             const [initialCapabilities, healthResponse] = await Promise.all([
               window.ogb.getCapabilities(),
               window.ogb.orchestration.request({ path: "/api/health" }),
@@ -747,22 +729,9 @@ function createWindow() {
               throw new Error(\`health request failed: \${healthResponse.status}\`);
             }
             const health = JSON.parse(new TextDecoder().decode(healthResponse.body));
-            let capabilities = initialCapabilities;
-            let cuaCrashReason = null;
-            let cuaRetryStatus = null;
-            if (crashPromise) {
-              if (!initialCapabilities.localComputer.available) {
-                throw new Error("CUA was not ready before the simulated crash");
-              }
-              cuaCrashReason = await crashPromise;
-              cuaRetryStatus = await window.ogb.localControl.retry();
-              capabilities = await window.ogb.getCapabilities();
-            }
             return {
               initialCapabilities,
-              capabilities,
-              cuaCrashReason,
-              cuaRetryStatus,
+              capabilities: initialCapabilities,
               health,
               location: window.location.href,
               title: document.title,
@@ -776,38 +745,6 @@ function createWindow() {
           throw new Error(
             `unexpected packaged renderer URL: ${result.location} (expected ${expectedLocation})`,
           );
-        }
-        if (process.env.OMB_SMOKE_BUNDLED_CUA === "1") {
-          const connection = await cuaReady;
-          const expectedDriver = path.join(
-            process.resourcesPath,
-            "cua-linux-x64",
-            "cua-driver",
-          );
-          let exactBundledPath = false;
-          try {
-            exactBundledPath =
-              Boolean(connection?.driver?.path) &&
-              fs.realpathSync(connection.driver.path) === fs.realpathSync(expectedDriver);
-          } catch {}
-          result.cuaRuntime = {
-            driverSource: connection?.driver?.source,
-            exactBundledPath,
-            appImagePrivateStage:
-              Boolean(process.env.APPIMAGE) &&
-              connection?.driver?.path !== expectedDriver &&
-              path.basename(path.dirname(connection?.driver?.path ?? "")).startsWith(
-                APPIMAGE_CUA_STAGE_PREFIX,
-              ),
-            driverPath: connection?.driver?.path,
-            driverVersion: connection?.driver?.version,
-            daemonPid: connection?.daemon?.pid,
-            socketPath: connection?.daemon?.socketPath,
-            pidFile: connection?.daemon?.socketPath
-              ? path.join(path.dirname(connection.daemon.socketPath), "driver.pid")
-              : undefined,
-            mcpEnv: connection?.mcp?.env,
-          };
         }
         result.hardwareAccelerationEnabled = app.isHardwareAccelerationEnabled();
         result.displayMediaRequests = displayMediaRequestCount;
@@ -829,8 +766,6 @@ function createWindow() {
   return win;
 }
 
-// Local-control screen preview — served from the main process so the Screen
-// Recording permission prompt attributes to the app, never the server
 ipcMain.handle("orchestration:request", (event, request) => {
   if (event.senderFrame !== mainWindow?.webContents.mainFrame) throw new Error("untrusted renderer");
   if (!request || typeof request.path !== "string" || !request.path.startsWith("/api/")) {
@@ -1030,7 +965,6 @@ ipcMain.handle("desktop:capabilities", async () =>
     platform: process.platform,
     env: process.env,
     packaged: app.isPackaged,
-    localConnection: await cuaReady,
   }),
 );
 
@@ -1102,25 +1036,6 @@ ipcMain.handle("credential:set", async (_event, name, value) => {
   );
 });
 
-async function broadcastDesktopCapabilities() {
-  const capabilities = desktopCapabilities({
-    platform: process.platform,
-    env: process.env,
-    packaged: app.isPackaged,
-    localConnection: await cuaReady,
-  });
-  for (const window of BrowserWindow.getAllWindows()) {
-    if (!window.isDestroyed()) window.webContents.send("desktop:capabilities-changed", capabilities);
-  }
-}
-
-setCuaStateListener((connection) => {
-  cuaReady = Promise.resolve(connection);
-  void broadcastDesktopCapabilities().catch((error) => {
-    console.error("[desktop] capability broadcast failed:", error);
-  });
-});
-
 app.whenReady().then(async () => {
   if (app.isPackaged) app.setAsDefaultProtocolClient("Roundtable");
   if (process.platform === "darwin") app.dock.setIcon(APP_ICON);
@@ -1184,19 +1099,8 @@ app.whenReady().then(async () => {
       { useSystemPicker: false },
     );
   }
-  registerCuaIpc();
   androidDevice.registerIpc(ipcMain);
   registerUpdaterIpc();
-  // Start the CUA daemon before the window so the harness can pick up the
-  // connection descriptor on first render. Never blocks window creation on
-  // failure — computer use degrades to "unavailable", the rest still works.
-  cuaReady =
-    process.platform === "darwin" || process.platform === "linux"
-      ? startCua().catch((e) => {
-          console.error("[cua] start failed:", e);
-          return { mode: "unavailable", reason: String(e) };
-        })
-      : Promise.resolve({ mode: "unavailable", reason: "unsupported-platform" });
   orchestrationReady = await startOrchestrationHost();
   protocol.handle("roundtable-resource", async (request) => {
     const url = new URL(request.url);
@@ -1235,19 +1139,13 @@ app.on("window-all-closed", () => {
   if (process.platform !== "darwin") app.quit();
 });
 
-// EMBEDDING.md lifecycle rule: defer the first quit until the embedded
-// daemon's async cleanup completes — it can't run after the host exits.
-// Cap the defer so a wedged daemon cannot keep the app alive forever.
-const CUA_STOP_TIMEOUT_MS = 2500;
-let cuaCleanedUp = false;
 let signalQuitRequested = false;
 
 // Package managers, desktop watchdogs, and terminal launchers commonly stop
 // Linux apps with SIGTERM/SIGINT. Convert the first signal into Electron's
-// normal quit path so the embedded server, Cua descriptor/socket, and private
-// AppImage stage receive the same bounded cleanup as a window close. A second
-// signal keeps Node's default force-quit behavior because these are `once`
-// listeners.
+// normal quit path so child processes receive the same cleanup as a window
+// close. A second signal keeps Node's default force-quit behavior because
+// these are `once` listeners.
 const requestSignalQuit = () => {
   if (signalQuitRequested) return;
   signalQuitRequested = true;
@@ -1256,9 +1154,7 @@ const requestSignalQuit = () => {
 process.once("SIGINT", requestSignalQuit);
 process.once("SIGTERM", requestSignalQuit);
 
-app.on("before-quit", (e) => {
-  if (cuaCleanedUp) return;
-  e.preventDefault();
+app.on("before-quit", () => {
   appQuitting = true;
   try {
     orchestrationProc?.kill();
@@ -1267,13 +1163,5 @@ app.on("before-quit", (e) => {
   // stop it here so quitting never orphans a recording process
   if (nativeActions.appleSpeech) stopSpeech();
   stopRecorder();
-  const cleanup = Promise.race([
-    Promise.all([stopCua().catch(() => {})]),
-    new Promise((resolve) => setTimeout(resolve, CUA_STOP_TIMEOUT_MS).unref()),
-  ]);
-  cleanup.then(() => {
-    cuaCleanedUp = true;
-    app.quit();
-  });
 });
 

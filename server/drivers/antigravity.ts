@@ -11,8 +11,8 @@
 // approves everything. Real per-action approval cards are a future path via
 // native ACP (agy issue #31), which would reuse acp/core.ts like grok/gemini.
 //
-// Computer use: agy has no per-turn MCP flag, so the bot's computer (cloud
-// box / Local VM / VPS) is mounted by upserting one key into the global
+// Computer use: agy has no per-turn MCP flag, so the bot's Box computer is
+// mounted by upserting one key into the global
 // `~/.gemini/config/mcp_config.json` before each spawn — see
 // ensureAntigravityComputerMcp below. Full-auto instances only; the host
 // desktop stays off (no approval channel in print mode, ever).
@@ -23,7 +23,7 @@ import { dirname, join } from "node:path";
 import { z } from "zod";
 
 import { DATA_DIR, stripWorkspaceCredentialEnv } from "../config.ts";
-import { computerProxyEnv } from "../container-computer.ts";
+import { computerProxyEnv } from "../computer-proxy-env.ts";
 import { augmentedPath } from "../env-path.ts";
 import { SPAWNED_PROXIES } from "../proxy-paths.ts";
 import { injectedApiModel, mergeLocalInject } from "./local-inject.ts";
@@ -163,10 +163,7 @@ const mcpConfigFileSchema = z.looseObject({
   mcpServers: z.looseObject({}).optional(),
 });
 
-/** The computer MCP server for this turn, or null when the turn has none.
- * Cloud boxes go through Roundtable's REST-to-MCP adapter (the same spec
- * claude.ts and codex.ts build); Local VM and VPS connections arrive as a
- * ready-made Cua Driver stdio command and pass through unchanged. */
+/** The Box computer MCP server for this turn, or null when the turn has none. */
 export function antigravityComputerMcpServer(
   integrations: SendTurnInput["integrations"],
 ): AntigravityComputerMcpServer | null {
@@ -178,18 +175,10 @@ export function antigravityComputerMcpServer(
       args: [SPAWNED_PROXIES.computer],
       env: {
         ELECTRON_RUN_AS_NODE: "1",
-        OGB_BOX_ID: proxyEnv.OGB_BOX_ID ?? "",
-        OGB_BOX_TOKEN: proxyEnv.OGB_BOX_TOKEN ?? "",
-        // who-is-driving endpoint, so a person taking the wheel in the
-        // panel pauses this bot's hands mid-turn
-        OMB_CONTROL_PIPE: proxyEnv.OMB_CONTROL_PIPE ?? "",
-        OMB_CONTROL_PATH: proxyEnv.OMB_CONTROL_PATH ?? "",
-        OMB_CONTROL_TOKEN: proxyEnv.OMB_CONTROL_TOKEN ?? "",
+        ...proxyEnv,
       },
     };
   }
-  const local = integrations?.localComputer;
-  if (local) return { command: local.command, args: local.args, env: { ...local.env } };
   return null;
 }
 
@@ -715,15 +704,12 @@ export const AntigravityDriver: ProviderDriver<AntigravityConfig> = {
         capabilities: {
           sessionModelSwitch: "in-session",
           images: true,
-          // Cloud box, Local VM, and VPS computers all mount through the
-          // global mcp_config.json above. Only full-auto instances advertise
+          // Box computers mount through the global mcp_config.json above.
+          // Only full-auto instances advertise
           // it: print mode has no interactive approval channel, and outside
           // --dangerously-skip-permissions agy auto-denies tools that would
           // prompt (the accept-edits shell behavior in the header comment),
-          // so a non-fullAuto mount could never fire. localComputerMcp stays
-          // unset on purpose — the host desktop requires per-action human
-          // approval (see contracts.ts), which print mode cannot deliver in
-          // any mode; that returns with the native ACP path (agy issue #31).
+          // so a non-fullAuto mount could never fire.
           computerMcp: config.fullAuto,
         },
         sendTurn,

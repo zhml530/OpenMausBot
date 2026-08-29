@@ -6,17 +6,13 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   DATA_DIR,
   instanceConfigs,
-  isValidSshAlias,
   loadConfig,
-  localVmMaxInstances,
-  localVmMode,
   parseConfigPatch,
   parseStoredConfig,
   roomTurnTimeoutMinutes,
   skillRecorderEnabled,
   stripWorkspaceCredentialEnv,
   syncCredentialEnv,
-  vpsSshAlias,
   withInstanceCli,
   WORKSPACE_CREDENTIAL_ENV,
   type AppConfig,
@@ -42,15 +38,9 @@ describe("configuration boundaries", () => {
     expect(() => parseConfigPatch({ profile: [] })).toThrow("profile");
   });
 
-  it("accepts only a simple VPS SSH config alias and exposes no credentials", () => {
-    expect(isValidSshAlias("production-vps")).toBe(true);
-    expect(isValidSshAlias("prod; reboot")).toBe(false);
-    expect(() => parseConfigPatch({ vps: { sshAlias: "prod; reboot" } })).toThrow("vps.sshAlias");
-    expect(parseConfigPatch({ vps: { sshAlias: "production-vps" } })).toEqual({
-      vps: { sshAlias: "production-vps" },
-    });
-    expect(vpsSshAlias({ vps: { sshAlias: "production-vps" } })).toBe("production-vps");
-    expect(vpsSshAlias({ vps: { sshAlias: "-bad" } })).toBeNull();
+  it("drops retired computer configuration", () => {
+    expect(parseStoredConfig({ vps: { sshAlias: "legacy" }, localVm: { mode: "shared" } })).toEqual({});
+    expect(parseConfigPatch({ vps: { sshAlias: "legacy" }, localVm: { mode: "shared" } })).toEqual({});
   });
 
   it("accepts a persisted global room turn timeout and supplies the legacy default", () => {
@@ -70,16 +60,6 @@ describe("configuration boundaries", () => {
     },
   );
 
-  it("preserves shared Local VM behavior by default and accepts bounded per-bot mode", () => {
-    expect(localVmMode({})).toBe("shared");
-    expect(localVmMaxInstances({})).toBe(2);
-    expect(parseConfigPatch({ localVm: { mode: "per-bot", maxInstances: 4 } })).toEqual({
-      localVm: { mode: "per-bot", maxInstances: 4 },
-    });
-    expect(localVmMode({ localVm: { mode: "per-bot" } })).toBe("per-bot");
-    expect(localVmMaxInstances({ localVm: { maxInstances: 3 } })).toBe(3);
-  });
-
   it("keeps experimental features off by default and accepts an explicit opt-in", () => {
     expect(skillRecorderEnabled({})).toBe(false);
     expect(parseConfigPatch({ features: { skillRecorder: true } })).toEqual({
@@ -91,13 +71,6 @@ describe("configuration boundaries", () => {
     );
   });
 
-  it.each([0, 1.5, 5, "2", null])("rejects an invalid per-bot VM limit: %j", (maxInstances) => {
-    expect(() => parseConfigPatch({ localVm: { maxInstances } })).toThrow("localVm.maxInstances");
-  });
-
-  it.each(["one-per-bot", "windows", 1, null])("rejects an invalid Local VM mode: %j", (mode) => {
-    expect(() => parseConfigPatch({ localVm: { mode } })).toThrow("localVm.mode");
-  });
 });
 
 describe("default fleet", () => {

@@ -28,65 +28,16 @@ function linuxSession(platform, env) {
   return "headless";
 }
 
-function linuxLocalControlSupport(platform, env) {
-  if (platform !== "linux") {
-    return Object.freeze({
-      available: false,
-      session: "unknown",
-      reasonCode: "unsupported-platform",
-      message: "Local control is not available on this platform.",
-    });
-  }
-  const session = linuxSession(platform, env);
-  if (session === "x11") return Object.freeze({ available: true, session });
-  if (session === "wayland") {
-    return Object.freeze({
-      available: false,
-      session,
-      reasonCode: "linux-wayland-seat-safety-blocked",
-      message:
-        "Local control is not available on Wayland yet. Sign out and choose Ubuntu on Xorg to use This computer.",
-    });
-  }
-  return Object.freeze({
-    available: false,
-    session,
-    reasonCode: "headless-session",
-    message: "Local control needs an active Ubuntu Xorg desktop session.",
-  });
-}
-
-function localComputerReady(platform, connection) {
-  if (platform === "darwin") {
-    return connection?.mode === "embedded" || connection?.mode === "standalone";
-  }
-  if (
-    platform !== "linux" ||
-    connection?.schemaVersion !== 1 ||
-    connection?.platform !== "linux" ||
-    connection?.enabled !== true ||
-    connection?.status !== "ready"
-  ) {
-    return false;
-  }
-  if (connection.mode === "linux-x11-supervised") {
-    return connection.session === "x11";
-  }
-  return false;
-}
-
 function desktopCapabilities({
   platform = process.platform,
   env = process.env,
   packaged = false,
-  localConnection = null,
   homeDir = require("node:os").homedir(),
 } = {}) {
   const hostPlatform = normalizedPlatform(platform);
   const isMac = hostPlatform === "darwin";
   const hostSession = linuxSession(hostPlatform, env);
   const linuxPreview = hostPlatform === "linux" && hostSession !== "headless";
-  const localAvailable = localComputerReady(hostPlatform, localConnection);
   const screenPreview = {
     available: isMac || linuxPreview,
     interaction:
@@ -106,41 +57,6 @@ function desktopCapabilities({
     onDevice: isMac,
   };
   if (!isMac) dictation.reasonCode = "unsupported-platform";
-  const localComputer = {
-    available: localAvailable,
-    support:
-      localAvailable && hostPlatform === "linux"
-        ? "limited"
-        : localAvailable
-          ? "supported"
-          : "unsupported",
-    enabled: connectionEnabled(hostPlatform, localConnection),
-    status: localAvailable ? "ready" : localConnection?.status ?? "unavailable",
-  };
-  if (typeof localConnection?.message === "string") {
-    localComputer.message = localConnection.message;
-  }
-  if (typeof localConnection?.driver?.path === "string") {
-    localComputer.driverPath = localConnection.driver.path;
-  }
-  if (typeof localConnection?.driver?.version === "string") {
-    localComputer.driverVersion = localConnection.driver.version;
-  }
-  if (typeof localConnection?.driver?.source === "string") {
-    localComputer.driverSource = localConnection.driver.source;
-  }
-  if (typeof localConnection?.session === "string") {
-    localComputer.session = localConnection.session;
-  }
-  if (typeof localConnection?.compositor === "string") {
-    localComputer.compositor = localConnection.compositor;
-  }
-  if (!localAvailable) {
-    localComputer.reasonCode =
-      localConnection?.reasonCode ??
-      (hostPlatform === "darwin" ? "cua-driver-unavailable" : "unsupported-platform");
-  }
-
   return {
     host: {
       platform: hostPlatform,
@@ -161,20 +77,11 @@ function desktopCapabilities({
     windowChrome: isMac ? "mac-inset" : "native",
     screenPreview,
     dictation,
-    localComputer,
   };
 }
 
-function connectionEnabled(platform, connection) {
-  if (platform === "darwin") return localComputerReady(platform, connection);
-  return platform === "linux" && connection?.enabled === true;
-}
-
 module.exports = {
-  connectionEnabled,
   desktopCapabilities,
-  linuxLocalControlSupport,
   linuxSession,
-  localComputerReady,
   nativeDesktopActions,
 };

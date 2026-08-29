@@ -3,15 +3,14 @@
 // is the stuff shared by every bot: who you are, your keys, and the
 // machine your bots can borrow.
 import { useEffect, useRef, useState } from "react";
-import { Coins, KeyRound, Monitor, Search, Terminal, User, X } from "lucide-react";
+import { Coins, KeyRound, Search, Terminal, User, X } from "lucide-react";
 import { api, useStore, type AppSettingsSection, type ConfigStatus } from "@/state/store";
 import { analyticsEnabled, setAnalyticsEnabled } from "@/lib/analytics";
 import { skillRecorderEnabled } from "@/lib/feature-flags";
 import { orchestrationFetch } from "@/lib/orchestration";
-import { ApiKeyRow, VpsConnection } from "./ApiKeys";
+import { ApiKeyRow } from "./ApiKeys";
 import { useUpdaterState } from "@/lib/updater";
 import { EnginesSettings } from "./EnginesSettings";
-import { LocalComputerSection } from "./LocalComputerSection";
 import { Card } from "./SettingsPrimitives";
 import { UsageSection } from "./UsageSection";
 import { SkinPicker } from "./SkinPicker";
@@ -26,9 +25,8 @@ const SECTIONS: Array<{
   keywords: string[];
 }> = [
   { id: "general", label: "General", icon: User, keywords: ["profile", "name", "email", "skin", "theme", "appearance", "analytics", "updates"] },
-  { id: "connections", label: "Connections", icon: KeyRound, keywords: ["keys", "api", "composio", "box", "xai", "vps"] },
+  { id: "connections", label: "Connections", icon: KeyRound, keywords: ["keys", "api", "composio", "box", "xai"] },
   { id: "engines", label: "Engines", icon: Terminal, keywords: ["models", "claude", "grok", "providers", "cli"] },
-  { id: "computer", label: "Local VM", icon: Monitor, keywords: ["vm", "virtual", "desktop"] },
   { id: "usage", label: "Usage", icon: Coins, keywords: ["tokens", "cost", "billing"] },
 ];
 
@@ -246,7 +244,7 @@ function DiagnosticsRow() {
 
 export function SettingsModal() {
   const { state, dispatch } = useStore();
-  const section = state.appSettingsSection;
+  const section = state.appSettingsSection === "computer" ? "general" : state.appSettingsSection;
   const dialogRef = useRef<HTMLDivElement>(null);
   const [query, setQuery] = useState("");
   const q = query.trim().toLowerCase();
@@ -403,7 +401,6 @@ export function SettingsModal() {
                   ) : null}
                   <TranscriptionSettings />
                   <ApiKeyRow section="box" />
-                  <VpsConnection />
                   <ApiKeyRow section="opencodeGo" />
                   <details className="rounded-lg border border-hairline/40 bg-inset px-3 py-2">
                     <summary className="cursor-pointer text-[13px] text-ink-secondary">Self-host connected apps</summary>
@@ -420,10 +417,6 @@ export function SettingsModal() {
                 <EnginesSettings />
               </Card>
             )}
-
-
-            {section === "computer" && <LocalComputerSection />}
-
             {section === "usage" && <UsageSection />}
           </div>
         </div>

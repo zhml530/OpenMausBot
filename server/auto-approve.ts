@@ -58,16 +58,16 @@ export function looksDestructive(text: string): boolean {
  * client so the two sides can never disagree about what was granted. */
 const COMMAND_TOOLS = new Set(["bash", "shell", "execute", "run_command", "computer_exec", "terminal"]);
 
-export function approvalKey(tool: string, summary: string, scope?: "local-computer"): string {
+export function approvalKey(tool: string, summary: string): string {
   const bare = tool.replace(/^mcp__[^_]+__/, "").toLowerCase();
-  if (!COMMAND_TOOLS.has(bare)) return scope ? `${scope}:${tool}` : tool;
+  if (!COMMAND_TOOLS.has(bare)) return tool;
   // first bare word of the command, skipping env assignments and sudo
   const words = summary.trim().split(/\s+/);
   let i = 0;
   while (i < words.length && (/^[A-Z_][A-Z0-9_]*=/.test(words[i]) || words[i] === "sudo")) i += 1;
   const program = (words[i] ?? "").split("/").pop()?.replace(/[^\w.-]/g, "") ?? "";
   const key = program ? `${tool}:${program}` : tool;
-  return scope ? `${scope}:${key}` : key;
+  return key;
 }
 
 export interface AutoApprover {
@@ -82,7 +82,6 @@ export type AutoVerdictSource =
   | "always-allow"
   | "auto-mode"
   | "unattended-block"
-  | "local-computer-block"
   | "destructive-guard"
   | "sensitive-guard"
   | "no-grant";
@@ -110,8 +109,6 @@ export function autoVerdict(
   context?: {
     /** the turn was started by an outside event, with nobody at the keyboard */
     unattended?: boolean;
-    /** the request controls the user's active desktop */
-    scope?: "local-computer";
   },
 ): AutoVerdict {
   // the guards outrank the grants, so an "always allow" can never widen
@@ -122,7 +119,7 @@ export function autoVerdict(
   // worth auditing is "this WOULD have auto-approved, and only the block
   // stood in the way", which cannot be told apart from an ordinary
   // "nobody granted this" card without knowing both halves.
-  const key = approvalKey(tool, summary, context?.scope);
+  const key = approvalKey(tool, summary);
   const grant =
     destructive || sensitive
       ? null
@@ -144,15 +141,6 @@ export function autoVerdict(
     if (sensitive) return { approve: null, source: "sensitive-guard", rule: sensitive };
     return { approve: null, source: "no-grant" };
   }
-  if (context?.scope === "local-computer" && !bot.autoApprove) {
-    // Host control is not covered by a remembered always-allow grant.
-    // After the Auto-on-this-computer warning, unclassified GUI actions
-    // (click/type) may auto-approve; destructive/sensitive still card.
-    if (grant) return { approve: null, source: "local-computer-block", rule: grant.rule };
-    if (destructive) return { approve: null, source: "destructive-guard", rule: destructive };
-    if (sensitive) return { approve: null, source: "sensitive-guard", rule: sensitive };
-    return { approve: null, source: "no-grant" };
-  }
   if (destructive) return { approve: null, source: "destructive-guard", rule: destructive };
   if (sensitive) return { approve: null, source: "sensitive-guard", rule: sensitive };
   if (grant) return { approve: grant.approve, source: grant.source, rule: grant.rule };
@@ -167,8 +155,6 @@ export function autoDecision(
   context?: {
     /** the turn was started by an outside event, with nobody at the keyboard */
     unattended?: boolean;
-    /** the request controls the user's active desktop */
-    scope?: "local-computer";
   },
 ): string | null {
   return autoVerdict(bot, tool, summary, context).approve;

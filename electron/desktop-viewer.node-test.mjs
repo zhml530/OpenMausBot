@@ -10,7 +10,7 @@ test("accepts a secret-bearing HTTPS VNC URL", () => {
   assert.equal(url.origin, "https://desktop.example");
 });
 
-test("accepts Local VM viewers on loopback", () => {
+test("accepts desktop viewers on loopback", () => {
   assert.equal(desktopViewerUrl("http://127.0.0.1:6080/vnc.html#password=x").port, "6080");
   assert.equal(desktopViewerUrl("http://localhost:6080/vnc.html").hostname, "localhost");
 });

@@ -40,12 +40,8 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: Clean generated output
         run: pnpm clean
-      - name: Stage the pinned CUA runtime
-        run: pnpm build:cua:linux
-      - name: Prove overlay-free X11 input routing
-        run: dbus-run-session -- xvfb-run -a pnpm smoke:cua-x11-input
-      - name: Package from the verified offline CUA stage
-        run: pnpm package:linux:offline
+      - name: Package Linux artifacts
+        run: pnpm package:linux
       - name: Verify package contents and metadata
         run: node scripts/verify-linux-package.mjs
       - name: Match a normal Ubuntu package parent on the ephemeral runner
