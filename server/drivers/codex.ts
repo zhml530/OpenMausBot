@@ -168,18 +168,6 @@ export const CodexDriver: ProviderDriver<CodexConfig> = {
             },
           });
         }
-        if (turn.integrations?.phone) {
-          const bridge = turn.integrations.phone;
-          Object.assign(env, bridge.env);
-          const prefix = "mcp_servers.Roundtable_phone";
-          appServerArgs.push(
-            "-c", `${prefix}.command=${JSON.stringify(bridge.command)}`,
-            "-c", `${prefix}.args=${JSON.stringify(bridge.args)}`,
-            "-c", `${prefix}.env_vars=${JSON.stringify(Object.keys(bridge.env))}`,
-            "-c", `${prefix}.default_tools_approval_mode="auto"`,
-          );
-        }
-
         const child = spawnCli(config.cli, appServerArgs, {
           cwd: turn.cwd ?? homedir(),
           env,
@@ -601,7 +589,6 @@ export const CodexDriver: ProviderDriver<CodexConfig> = {
         computerMcp: true,
         composioMcp: true,
         agentsMcp: true,
-        phoneMcp: true,
         images: true,
         effortLevels: ["low", "medium", "high", "xhigh", "max"],
       },

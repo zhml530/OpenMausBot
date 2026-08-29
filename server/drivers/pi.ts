@@ -66,7 +66,6 @@ export function buildMcpServers(turn: SendTurnInput): Record<string, unknown> | 
     };
   }
   if (turn.integrations?.agents) servers.agents = { ...turn.integrations.agents };
-  if (turn.integrations?.phone) servers.phone = { ...turn.integrations.phone };
   if (turn.integrations?.dweb) {
     servers.dweb = {
       command: process.execPath,
@@ -647,7 +646,6 @@ export const PiDriver: ProviderDriver<PiConfig> = {
           agentsMcp: true,
           computerMcp: true,
           composioMcp: true,
-          phoneMcp: true,
           // Images ride the ordinary prompt as <attached-image path> refs the
           // agent opens with its read tool — no native image blocks needed,
           // same as every other CLI engine.

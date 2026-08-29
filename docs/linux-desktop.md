@@ -12,7 +12,6 @@ installed builds do not require Node, pnpm, Swift, or a terminal at runtime.
 - External documentation and OAuth links in the default browser.
 - An explicit, view-only local screen preview on GNOME Xorg and GNOME Wayland. The Wayland path uses the
   native portal chooser and keeps the selected PipeWire stream open until the user stops sharing.
-- USB Android device control through the Phone Harness skill.
 
 The local preview does **not** give a bot control of this computer. Automatic Wayland helper installation,
 Linux dictation, and ARM64 remain unavailable; follow Linux desktop progress in

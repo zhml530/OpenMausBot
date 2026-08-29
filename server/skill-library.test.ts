@@ -5,36 +5,36 @@ import { join } from "node:path";
 
 import { loadUserSkills, mergeSkills, parseSkillManifest, skillInstructionsFor, type BundledSkill } from "./skill-library.ts";
 
-const phone: BundledSkill = {
-  directory: "/skills/phone-harness",
-  instructions: "---\nname: phone-harness\ndescription: test\n---\nUse phone tools.",
+const calendar: BundledSkill = {
+  directory: "/skills/calendar-helper",
+  instructions: "---\nname: calendar-helper\ndescription: test\n---\nUse calendar tools.",
   manifest: {
-    id: "phone-harness",
-    name: "Phone Harness",
+    id: "calendar-helper",
+    name: "Calendar Helper",
     version: "0.1.0",
-    description: "Control a phone",
+    description: "Manage a calendar",
     defaultEnabled: true,
-    triggerTerms: ["android", "phone"],
-    requiredCapabilities: ["phoneMcp"],
+    triggerTerms: ["calendar", "schedule"],
+    requiredCapabilities: ["calendarMcp"],
   },
 };
 
 describe("bundled skill library", () => {
   it("selects a skill only when both its trigger and capability are present", () => {
-    const rendered = skillInstructionsFor("Open Uber on my Android", ["phoneMcp"], [phone]);
-    expect(rendered).toContain("Use phone tools");
-    expect(rendered).not.toContain('root="/skills/phone-harness"');
-    expect(skillInstructionsFor("Open Uber on my Android", ["phoneMcp"], [phone], { includeRoot: true }))
-      .toContain('root="/skills/phone-harness"');
-    expect(skillInstructionsFor("Open Uber on my Android", [], [phone])).toBe("");
-    expect(skillInstructionsFor("Write a poem", ["phoneMcp"], [phone])).toBe("");
+    const rendered = skillInstructionsFor("Schedule lunch", ["calendarMcp"], [calendar]);
+    expect(rendered).toContain("Use calendar tools");
+    expect(rendered).not.toContain('root="/skills/calendar-helper"');
+    expect(skillInstructionsFor("Schedule lunch", ["calendarMcp"], [calendar], { includeRoot: true }))
+      .toContain('root="/skills/calendar-helper"');
+    expect(skillInstructionsFor("Schedule lunch", [], [calendar])).toBe("");
+    expect(skillInstructionsFor("Write a poem", ["calendarMcp"], [calendar])).toBe("");
   });
 
   it("requires the manifest id to match its isolated folder", () => {
     expect(() => parseSkillManifest({
-      ...phone.manifest,
+      ...calendar.manifest,
       id: "other-skill",
-    }, "/skills/phone-harness")).toThrow(/invalid id/);
+    }, "/skills/calendar-helper")).toThrow(/invalid id/);
   });
 
   it("loads a recorded skill without letting a broken sibling disable it", () => {
@@ -55,7 +55,7 @@ describe("bundled skill library", () => {
   });
 
   it("does not let a user skill shadow a bundled skill id", () => {
-    expect(mergeSkills([phone], [{ ...phone, instructions: "user replacement" }])).toEqual([phone]);
+    expect(mergeSkills([calendar], [{ ...calendar, instructions: "user replacement" }])).toEqual([calendar]);
   });
 
   it("treats a non-directory user skill root as empty", () => {

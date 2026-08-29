@@ -4,7 +4,6 @@ import { randomUUID } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { createAndroidDeviceController } from "./android-device.mjs";
 import { assemblyAICredential, mintAssemblyAIStreamingToken } from "./assemblyai.mjs";
 import { finishSpeech, startSpeech, stopSpeech } from "./speech.mjs";
 import {
@@ -461,7 +460,6 @@ const ERROR_PAGE =
     `<body style="margin:0;display:flex;align-items:center;justify-content:center;height:100vh;background:#070707;color:#fcfcfc;font:15px -apple-system,system-ui"><div style="text-align:center;max-width:360px"><div style="font-size:40px">🐭</div><h2 style="font-weight:600;margin:12px 0 6px">Couldn't start the orchestration process</h2><p style="color:#fcfcfc99;line-height:1.5">Quit and reopen Roundtable. If it keeps happening, export diagnostics from the app menu.</p></div></body>`,
   );
 
-const androidDevice = createAndroidDeviceController({ resourcesPath: process.resourcesPath });
 const displayMediaGuard = createDisplayMediaGuard();
 let displayMediaRequestCount = 0;
 
@@ -943,7 +941,6 @@ app.whenReady().then(async () => {
       { useSystemPicker: false },
     );
   }
-  androidDevice.registerIpc(ipcMain);
   registerUpdaterIpc();
   orchestrationReady = await startOrchestrationHost();
   protocol.handle("roundtable-resource", async (request) => {

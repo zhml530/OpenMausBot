@@ -55,9 +55,6 @@ extraResources:
     to: server
   - from: skills
     to: skills
-  - from: dist-native/android-platform-tools
-    to: android-platform-tools
-
 mac:
   # Two single-arch artifacts rather than one universal binary: the app is
   # ~177 MB per arch, and universal would make every user download both halves.

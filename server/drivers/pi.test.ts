@@ -59,20 +59,18 @@ describe("buildMcpServers", () => {
     expect(buildMcpServers({ threadId: "t", text: "hi" })).toBeNull();
   });
 
-  it("passes composio/agents/phone through as stdio servers", () => {
+  it("passes composio and agents through as stdio servers", () => {
     const servers = buildMcpServers({
       threadId: "t",
       text: "hi",
       integrations: {
         composio: { command: "node", args: ["c"], env: { A: "1" } },
         agents: { command: "node", args: ["a"], env: { B: "2" } },
-        phone: { command: "node", args: ["p"], env: {} },
       },
     });
     expect(servers).toEqual({
       composio: { command: "node", args: ["c"], env: { A: "1" } },
       agents: { command: "node", args: ["a"], env: { B: "2" } },
-      phone: { command: "node", args: ["p"], env: {} },
     });
   });
 

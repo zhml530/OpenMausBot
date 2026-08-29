@@ -52,7 +52,6 @@ const ENTRY_POINTS = [
   "connector-proxy.ts",
   "drivers/agents-proxy.ts",
   "drivers/dweb-proxy.ts",
-  "drivers/phone-proxy.ts",
 ];
 
 // Pre-IPC builds emitted a standalone HTTP host. Never let a stale copy ride

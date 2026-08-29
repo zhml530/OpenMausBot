@@ -186,7 +186,6 @@ const MAX_WORKSPACE_BOTS = 100;
 // path happened to survive bundling, but it goes through the same anchor so
 // there is exactly one way proxies are located.
 const agentsProxyPath = SPAWNED_PROXIES.agents;
-const phoneProxyPath = SPAWNED_PROXIES.phone;
 // in the packaged app process.execPath is Electron — run the proxy as node
 const AGENTS_NODE_FLAG = { ELECTRON_RUN_AS_NODE: "1" };
 
@@ -203,14 +202,6 @@ function agentsIntegration(botId: string, threadId: string, depth: number) {
       OMB_TURN_DEPTH: String(depth),
     },
   };
-}
-
-function phoneIntegration() {
-  const env: Record<string, string> = { ...AGENTS_NODE_FLAG };
-  if (process.env.OMB_ADB_PATH) env.OMB_ADB_PATH = process.env.OMB_ADB_PATH;
-  if (process.env.OMB_RESOURCES_PATH) env.OMB_RESOURCES_PATH = process.env.OMB_RESOURCES_PATH;
-  if (process.env.PH_ANDROID_SERIAL) env.PH_ANDROID_SERIAL = process.env.PH_ANDROID_SERIAL;
-  return { command: process.execPath, args: [phoneProxyPath], env };
 }
 
 function connectedAppsIntegration(botId: string, threadId: string) {
@@ -1368,12 +1359,9 @@ async function startTurn(
       const integrations: NonNullable<Parameters<typeof instance.adapter.sendTurn>[0]["integrations"]> = {};
       const selectedSkills = selectBundledSkills(
         text,
-        instance.adapter.capabilities.phoneMcp === true ? ["phoneMcp"] : [],
+        [],
         availableSkills(),
       );
-      if (selectedSkills.some((skill) => skill.manifest.requiredCapabilities.includes("phoneMcp"))) {
-        integrations.phone = phoneIntegration();
-      }
       // the user's connected apps, but only to a driver that can mount
       // them — a key in the config says the connections exist, not that
       // this engine can reach them — and only to a bot the user has not
@@ -1733,12 +1721,9 @@ async function runGroupMemberTurn(
   }
   const selectedSkills = selectBundledSkills(
     serializeRoomContext(group.threadId, userName),
-    instance.adapter.capabilities.phoneMcp === true ? ["phoneMcp"] : [],
+    [],
     availableSkills(),
   );
-  if (selectedSkills.some((skill) => skill.manifest.requiredCapabilities.includes("phoneMcp"))) {
-    integrations.phone = phoneIntegration();
-  }
   try {
     if (bot.composio !== false && composio.configured(cfg) && instance.adapter.capabilities.composioMcp === true) {
       const connection = await connectedAppsIntegration(bot.id, group.threadId);
