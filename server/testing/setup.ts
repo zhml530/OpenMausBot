@@ -17,13 +17,6 @@ process.env.USERPROFILE = home;
 delete process.env.OMB_DATA_DIR;
 // Do not let a developer's Hermes global config path leak into per-test homes.
 delete process.env.HERMES_HOME;
-// The companion keeps its paired devices in its own directory, and resolves
-// it from homedir() the same way — so the redirect above already covers it.
-// Named explicitly all the same: the device tests delete this directory
-// wholesale, and "it is safe because of a line in another file" is not the
-// footing that delete should stand on.
-process.env.OMB_COMPANION_DIR = join(home, ".Roundtable-companion");
-
 // SQLite keeps the database file open for the lifetime of its handle.
 // Windows will not remove a directory containing an open database, so close
 // the per-test handle before the next test resets its throwaway data dir.

@@ -7,9 +7,9 @@
 # broken build from a laptop:
 #   - clean output dirs        -> 0.1.15 "app is damaged" (stale dist/ broke the seal)
 #   - codesign gate BEFORE     -> notarization ACCEPTS invalid signatures
-#   - packaged-server smoke    -> 0.1.24 died on launch (unbundled zod import)
+#   - packaged IPC entry       -> orchestration must ship with the desktop app
 #   - proxy-path probe         -> the 0.1.24 fix broke every helper while
-#                                 /api/health stayed green
+#                                 the old HTTP health check stayed green
 #   - staple, THEN hash        -> stapling rewrites bytes; stale feeds make
 #                                 electron-updater reject every update
 #   - blockmap regeneration    -> stale differential maps waste every updater's
@@ -106,28 +106,15 @@ jobs:
         run: |
           for app in release/mac-arm64/Roundtable.app release/mac/Roundtable.app; do
             codesign --verify --deep --strict "$app"
-            bin="$app/Contents/Resources/cloudflared/cloudflared"
-            test -x "$bin" || { echo "::error::missing executable $bin"; exit 1; }
-            test -f "$app/Contents/Resources/licenses/cloudflared-LICENSE.txt" \
-              || { echo "::error::missing cloudflared license in $app"; exit 1; }
-            test -f "$app/Contents/Resources/licenses/cloudflared-README.md" \
-              || { echo "::error::missing cloudflared provenance in $app"; exit 1; }
-            codesign --verify --strict "$bin"
-            app_team=$(codesign -dv --verbose=4 "$app" 2>&1 | sed -n 's/^TeamIdentifier=//p')
-            bin_team=$(codesign -dv --verbose=4 "$bin" 2>&1 | sed -n 's/^TeamIdentifier=//p')
-            test -n "$app_team" && test "$bin_team" = "$app_team" || {
-              echo "::error::cloudflared is not signed by the app's Developer ID team in $app"; exit 1; }
             echo "ok: $app"
           done
 
-      - name: "Gate: both packaged servers start and every helper path resolves"
+      - name: "Gate: every packaged helper path resolves"
         run: |
           for app in release/mac-arm64/Roundtable.app release/mac/Roundtable.app; do
             res="$app/Contents/Resources"
-            # the server tree is plain JS — runnable on the runner's node
-            # regardless of the app binary's arch
-            OMB_SMOKE_DIST="$res/server" node scripts/smoke-packaged-server.mjs \
-              || { echo "::error::packaged server in $app failed to start"; exit 1; }
+            test -f "$res/server/ipc-entry.js" || {
+              echo "::error::missing IPC orchestration entry in $app"; exit 1; }
             node --input-type=module - "$res/server" <<'EOF'
           import { existsSync } from "node:fs";
           import { pathToFileURL } from "node:url";
@@ -144,15 +131,6 @@ jobs:
               lipo -archs "$bin" | grep -q "x86_64" || { echo "::error::$bin lacks x86_64"; exit 1; }
               lipo -archs "$bin" | grep -q "arm64" || { echo "::error::$bin lacks arm64"; exit 1; }
             done
-            cloudflared="$res/cloudflared/cloudflared"
-            expected_arch=x86_64
-            case "$app" in *mac-arm64*) expected_arch=arm64 ;; esac
-            test "$(lipo -archs "$cloudflared")" = "$expected_arch" || {
-              echo "::error::$cloudflared is not the expected $expected_arch executable"; exit 1; }
-            if [ "$(uname -m)" = "$expected_arch" ]; then
-              "$cloudflared" version | grep -Fq "cloudflared version 2026.8.2 " || {
-                echo "::error::$cloudflared has the wrong version"; exit 1; }
-            fi
           done
 
       - name: Notarize all four artifacts
@@ -227,36 +205,17 @@ jobs:
         shell: bash
         run: rm -rf dist dist-server release
       - run: pnpm package:win
-      - name: Verify the packaged tree and start the packaged server
+      - name: Verify the packaged desktop tree
         shell: bash
         run: |
           res=release/win-unpacked/resources
-          [ -f "$res/server/index.js" ] || { echo "::error::missing server/index.js"; exit 1; }
+          [ -f "$res/server/ipc-entry.js" ] || { echo "::error::missing server/ipc-entry.js"; exit 1; }
           [ -f "$res/ui/index.html" ] || { echo "::error::missing ui/index.html"; exit 1; }
-          [ -f "$res/cloudflared/cloudflared.exe" ] || { echo "::error::missing cloudflared.exe"; exit 1; }
-          [ -f "$res/licenses/cloudflared-LICENSE.txt" ] || { echo "::error::missing cloudflared license"; exit 1; }
-          [ -f "$res/licenses/cloudflared-README.md" ] || { echo "::error::missing cloudflared provenance"; exit 1; }
-          expected=c29eee2b121f5436a642eed69fd9767da7e7b8c510fa50aaa130337f931357b5
-          actual=$(sha256sum "$res/cloudflared/cloudflared.exe" | cut -d' ' -f1)
-          [ "$actual" = "$expected" ] || { echo "::error::cloudflared hash is $actual"; exit 1; }
-          "$res/cloudflared/cloudflared.exe" version | grep -Fq "cloudflared version 2026.8.2 " || {
-            echo "::error::cloudflared has the wrong version"; exit 1; }
           [ -f "$res/app-update.yml" ] || { echo "::error::missing app-update.yml"; exit 1; }
           grep -q "Roundtable-releases" "$res/app-update.yml" || { echo "::error::wrong update repo"; exit 1; }
           if grep -q "publisherName" "$res/app-update.yml"; then
             echo "::error::publisherName on an unsigned build breaks every update"; exit 1
           fi
-          HOME="$RUNNER_TEMP/smoke" USERPROFILE="$RUNNER_TEMP/smoke" OMB_PORT=21987 \
-            node "$res/server/index.js" > "$RUNNER_TEMP/server.log" 2>&1 &
-          pid=$!
-          for _ in $(seq 1 90); do
-            curl -fsS --max-time 2 http://127.0.0.1:21987/api/health >/dev/null 2>&1 && { kill $pid; exit 0; }
-            kill -0 $pid 2>/dev/null || break
-            sleep 1
-          done
-          echo "::error::the packaged server never served /api/health"
-          cat "$RUNNER_TEMP/server.log" || true
-          exit 1
       - name: Stable-named copy
         shell: bash
         run: |

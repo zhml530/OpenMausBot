@@ -3917,8 +3917,8 @@ export async function handleRequest(req: IncomingMessage, res: ServerResponse): 
     if (m && method === "POST") {
       const existing = store.bot(m[1]);
       if (!existing) return json(res, 404, { error: "no such bot" });
-      // Generation is slow and both desktop and companion clients may edit or
-      // delete this bot while it is in flight. Snapshot the two fields this
+      // Generation is slow and another desktop action may edit or delete this
+      // bot while it is in flight. Snapshot the two fields this
       // request owns before the first await so a late result cannot win.
       const initialAvatar = snapshotAvatarGenerationState(existing);
       const parsed = avatarGenerationRequestSchema.safeParse(await readBody(req));
@@ -5117,14 +5117,7 @@ export async function handleRequest(req: IncomingMessage, res: ServerResponse): 
         if ((m[2] === "sleep" || m[2] === "remove") && (bot.busy || activeVpsThreads.has(botId))) {
           return json(res, 409, { error: "the VPS computer is being used by this bot — interrupt the turn first" });
         }
-        if (m[2] === "join") {
-          if (req.headers["x-Roundtable-companion"] === "1") {
-            return json(res, 409, {
-              error: "VPS live desktop control is currently available in the desktop app; the SSH viewer is loopback-only",
-            });
-          }
-          return json(res, 200, await vps.vpsComputerJoin(cfg, botId));
-        }
+        if (m[2] === "join") return json(res, 200, await vps.vpsComputerJoin(cfg, botId));
         if (m[2] === "screenshot") return json(res, 200, await vps.vpsComputerScreenshot(cfg, botId));
         const action = m[2] === "provision" ? "provision" : m[2] === "remove" ? "remove" : "stop";
         return json(res, 200, await vps.vpsComputerAction(action, cfg, botId));

@@ -71,8 +71,7 @@ host is unknown simply fails until you have done this once.
 - **Firewall the VPS to SSH only**, ideally from your IP. Nothing Roundtable does needs any other inbound
   port open, so anything else open is pure attack surface.
 - **Nothing sensitive is stored.** The only thing Roundtable persists is the alias name itself
-  (`~/.Roundtable/config.json`); keys, passphrases, and agent state stay with SSH. The alias is also kept
-  off paired phones — the companion reports configured-or-not, never the name.
+  (`~/.Roundtable/config.json`); keys, passphrases, and agent state stay with SSH.
 - The container itself runs hardened: capabilities dropped, private network/IPC/cgroup namespaces, no host
   mounts, and memory/CPU/pid limits. A container missing any of that — including one someone created under
   the managed name — is refused, not repaired.

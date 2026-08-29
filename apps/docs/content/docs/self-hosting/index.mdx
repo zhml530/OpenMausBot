@@ -1,18 +1,17 @@
 ---
-title: Self-hosting Roundtable
-description: Run the harness and desktop app on infrastructure you control.
+title: Running Roundtable locally
+description: Run the desktop app and agent engines on infrastructure you control.
 icon: Server
 ---
 
-Roundtable is local-first by default: the harness listens on loopback, agent CLIs run on your machine, and application state lives under `~/.Roundtable`.
+Roundtable is a desktop-only, local-first app. Agent CLIs run on your machine, application state lives under `~/.Roundtable`, and the UI talks to orchestration through typed Electron IPC rather than a local HTTP server.
 
-## Typical self-hosted setup
+## Typical local setup
 
 1. Run Roundtable on your personal macOS, Windows, or Ubuntu computer.
 2. Install and authenticate the agent CLIs you want to use.
 3. Add optional third-party keys only for the services you need.
-4. Keep the harness on loopback.
-5. Use the paired companion sidecar or Tailscale when another device needs access.
+4. Launch the Electron desktop app.
 
 ## What is still third party
 
@@ -25,12 +24,12 @@ Self-hosting Roundtable does not self-host every optional provider:
 
 These services are optional. Local chat through a locally installed agent CLI does not require them.
 
-## Run headless during development
+## Run during development
 
 ```bash
 pnpm install --frozen-lockfile
-pnpm dev:server
+pnpm dev:desktop
 ```
 
-The main harness listens on `127.0.0.1:8799` by default. Keep it private; it owns agent processes, approvals, computers, and workspace configuration.
+Electron starts orchestration in a utility process and connects it to the renderer through the preload bridge. There is no supported headless HTTP-server mode.
 

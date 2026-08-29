@@ -1,25 +1,24 @@
 ---
-title: Networking
-description: Understand the harness, webhook, and companion network boundaries.
+title: Process boundaries
+description: Understand the desktop IPC and external network boundaries.
 icon: Network
 ---
 
-Roundtable separates its network surfaces by trust level.
+Roundtable does not expose a local HTTP API. Desktop requests cross explicit Electron process boundaries, while agent engines continue to use ACP.
 
-| Surface | Default bind | Purpose |
-|---|---|---|
-| Harness | `127.0.0.1:8799` | Full app API and event stream |
-| Webhook receiver | `127.0.0.1:8800` | Health and secret hook endpoints only |
-| Companion sidecar | `0.0.0.0:8810` when enabled | Paired-device, token-authenticated allowlist |
-| Companion control | `127.0.0.1:8811` | Pairing and device administration |
+```mermaid
+flowchart LR
+  UI[Renderer UI] -->|typed preload API| Main[Electron main process]
+  Main -->|request and event IPC| Orchestration[Utility process]
+  Orchestration -->|ACP| Agents[Agent CLIs]
+  Orchestration -->|private named pipe or Unix socket| Helpers[Provider helpers]
+```
 
-## Remote access
+## Network access
 
-Use the companion sidecar rather than exposing the harness. Tailscale is the recommended remote route because it encrypts and authenticates the network path without making the machine public.
+Optional providers and connected apps can still make outbound internet requests. Those requests are initiated by the desktop-owned orchestration process or its scoped helpers; they do not require an inbound listener.
 
-For webhook delivery, proxy only the dedicated webhook receiver. Never forward the main harness port to the public internet.
+## Development UI
 
-## Port overrides
-
-Source and advanced deployments can change documented ports with the relevant environment settings. When the default harness port is occupied, packaged builds may fall back to another local port and communicate the selected address internally.
+Vite serves the renderer during development. This development asset server is not the orchestration transport and is absent from packaged builds, which load UI files directly from disk.
 
