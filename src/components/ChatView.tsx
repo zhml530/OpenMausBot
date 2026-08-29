@@ -14,7 +14,6 @@ import {
   Folder,
   ListTree,
   Loader2,
-  Monitor,
   MessageSquareReply,
   Pencil,
   Pin,
@@ -1052,16 +1051,6 @@ export function ChatView({ bot }: { bot: Bot }) {
           <UsageChip bot={bot} />
           <WorkingFolderChip bot={bot} />
           <ModelPicker bot={bot} />
-          <button
-            onClick={() => dispatch({ type: "toggleComputer" })}
-            className={cn(
-              "rounded-md p-1.5 hover:bg-raised",
-              state.computerOpen ? "text-accent" : "text-ink-secondary hover:text-ink",
-            )}
-            title="Bot's computer"
-          >
-            <Monitor size={18} />
-          </button>
           <button
             onClick={() => dispatch({ type: "toggleInspector" })}
             aria-label="Inspector"
