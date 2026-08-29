@@ -104,8 +104,8 @@ const PAIRS = [
 // visible deletion here rather than a silent pass. Where each one shows up:
 //
 //   white on accent  3.65:1  every primary button, 12–13px — Composer send,
-//                            EngineSetup install, ComputerPanel start, the
-//                            Onboarding and Routines actions (28 sites)
+//                            EngineSetup install, Onboarding, and Routines
+//                            actions (28 sites)
 //   white on danger  3.10:1  CallView.tsx:532 / GroupCallView.tsx:492, the
 //                            hang-up buttons, 14px
 //   accent on card   4.15:1  accent links inside a Card — ApiKeys.tsx:121

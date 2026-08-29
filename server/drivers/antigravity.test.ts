@@ -215,7 +215,6 @@ describe("Antigravity computer MCP config", () => {
       kind: "box" as const,
       boxId: "bx_1",
       token: "box-tok",
-      control: { url: "http://127.0.0.1:9/control", token: "ctl-tok" },
     },
   };
   const boxEntry = () => antigravityComputerMcpServer(boxIntegrations)!;
@@ -228,8 +227,6 @@ describe("Antigravity computer MCP config", () => {
         ELECTRON_RUN_AS_NODE: "1",
         OGB_BOX_ID: "bx_1",
         OGB_BOX_TOKEN: "box-tok",
-        OMB_CONTROL_URL: "http://127.0.0.1:9/control",
-        OMB_CONTROL_TOKEN: "ctl-tok",
       },
     });
   });

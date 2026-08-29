@@ -49,7 +49,6 @@ import {
   EVENTS_DIR,
   NATIVE_DIR,
 } from "./config.ts";
-import { ComputerControl } from "./computer-control.ts";
 import { augmentedPath, findCliCandidates, resetPathCache } from "./env-path.ts";
 import { describeSpawnFailure, execCli } from "./procs.ts";
 import { buildNotification, type Notification } from "./notify.ts";
@@ -221,23 +220,6 @@ function connectedAppsIntegration(botId: string, threadId: string) {
     botId,
     threadId,
   });
-}
-
-// ── computer control (who is driving) ──────────────────────────────────
-// The person can take the wheel of a bot's computer from the panel; while
-// they hold it, the bot's computer proxies refuse every action. The record
-// lives here; the proxies consult it over loopback with the boot token.
-const computerControl = new ComputerControl((botId, snapshot) => {
-  broadcast({ kind: "computer-control", botId, held: snapshot.held, helpReason: snapshot.helpReason });
-});
-
-/** The loopback endpoint a bot's computer proxy polls before acting. */
-function controlIntegration(botId: string) {
-  return {
-    pipe: process.env.OMB_HARNESS_PIPE ?? "",
-    path: `/api/internal/computer-control?botId=${encodeURIComponent(botId)}`,
-    token: COMMS_TOKEN,
-  };
 }
 
 /** Run a turn on `targetBotId` and resolve with its assistant text — the
@@ -1465,7 +1447,6 @@ async function startTurn(
               kind: "box",
               boxId: b.id,
               token: cfg.box!.token!,
-              control: controlIntegration(bot.id),
             };
             computerKind = "box";
           }
@@ -2700,32 +2681,6 @@ export async function handleRequest(req: IncomingMessage, res: ServerResponse): 
         res.writeHead(upstream.status, headers);
         return res.end(Buffer.from(upstream.bytes));
       }
-      // ── computer control: proxies read the hold, bots plead for help ──
-      if (path === "/api/internal/computer-control") {
-        const botId = url.searchParams.get("botId") ?? "";
-        const bot = store.bot(botId);
-        if (!bot) return json(res, 404, { error: "no such bot" });
-        if (method === "GET") {
-          const snapshot = computerControl.snapshot(botId);
-          return json(res, 200, { held: snapshot.held, helpOpen: snapshot.helpReason !== null });
-        }
-        if (method === "POST") {
-          const body = await readBody(req);
-          const { snapshot, requestId } = computerControl.requestHelpLease(botId, body.reason);
-          // worth a buzz: the bot is blocked on the person's hands, which
-          // is exactly the "blocked on you" rule notify.ts encodes
-          notify(
-            buildNotification("takeover", bot, bot.threadId, snapshot.helpReason ?? "asked you to take over"),
-          );
-          return json(res, 200, { held: snapshot.held, helpOpen: snapshot.helpReason !== null, requestId });
-        }
-        if (method === "DELETE") {
-          const body = await readBody(req);
-          const snapshot = computerControl.expireHelp(botId, body.requestId);
-          return json(res, 200, { held: snapshot.held, helpOpen: snapshot.helpReason !== null });
-        }
-        return json(res, 405, { error: "method not allowed" });
-      }
       if (method === "POST" && path === "/api/internal/connectors/request") {
         const body = await readBody(req);
         const botId = String(body.botId ?? "");
@@ -2941,12 +2896,6 @@ export async function handleRequest(req: IncomingMessage, res: ServerResponse): 
       return json(res, 200, {
         bots: store.bots.map((bot) => ({ ...publicBot(bot), ...messagePage(bot.threadId, limit) })),
         groups: store.groups.map((g) => ({ ...g, ...messagePage(g.threadId, limit) })),
-        computerControl: Object.fromEntries(
-          store.bots.map((bot) => {
-            const snapshot = computerControl.snapshot(bot.id);
-            return [bot.id, { held: snapshot.held, helpReason: snapshot.helpReason }];
-          }),
-        ),
       });
     }
 
@@ -3850,7 +3799,6 @@ export async function handleRequest(req: IncomingMessage, res: ServerResponse): 
       // now, and its caller would otherwise wait out the 15-minute timeout
       cancelPeerApprovalsFor(bot.id);
       discardDelegations(commsBus, bot.threadId);
-      computerControl.forget(bot.id);
       store.deleteBot(bot.id);
       for (const dir of [EVENTS_DIR, NATIVE_DIR]) {
         try {
@@ -4567,38 +4515,6 @@ export async function handleRequest(req: IncomingMessage, res: ServerResponse): 
       const bot = store.bot(m[1]);
       if (!bot) return json(res, 404, { error: "no such bot" });
       return json(res, 200, { backend: "box", ...(await box.boxStatus(cfg, bot.id)) });
-    }
-    // Who is driving this bot's computer. GET is the panel's initial read;
-    // POST take/release/dismiss-help are the person's three moves. The bot
-    // has no verb here at all — its only voice is the internal help plea.
-    m = path.match(/^\/api\/bots\/([\w-]+)\/computer\/control$/);
-    if (m) {
-      const bot = store.bot(m[1]);
-      if (!bot) return json(res, 404, { error: "no such bot" });
-      if (method === "GET") return json(res, 200, computerControl.snapshot(bot.id));
-      if (method === "POST") {
-        // JSON-only for the same anti-form-POST reason as every other
-        // computer mutation below.
-        if (!String(req.headers["content-type"] ?? "").toLowerCase().startsWith("application/json")) {
-          return json(res, 415, { error: "content-type must be application/json" });
-        }
-        const body = await readBody(req);
-        const action = String(body.action ?? "");
-        if (action === "take") return json(res, 200, computerControl.take(bot.id));
-        if (action === "release") return json(res, 200, computerControl.release(bot.id));
-        if (action === "dismiss-help") return json(res, 200, computerControl.dismissHelp(bot.id));
-        return json(res, 400, { error: "action must be take, release, or dismiss-help" });
-      }
-      return json(res, 405, { error: "method not allowed" });
-    }
-    m = path.match(/^\/api\/bots\/([\w-]+)\/computer\/viewer-close$/);
-    if (m && method === "POST") {
-      const bot = store.bot(m[1]);
-      if (!bot) return json(res, 404, { error: "no such bot" });
-      if (!String(req.headers["content-type"] ?? "").toLowerCase().startsWith("application/json")) {
-        return json(res, 415, { error: "content-type must be application/json" });
-      }
-      return json(res, 200, { closed: false });
     }
     m = path.match(/^\/api\/bots\/([\w-]+)\/computer\/(provision|join|sleep|exec|screenshot|remove)$/);
     if (m && method === "POST") {

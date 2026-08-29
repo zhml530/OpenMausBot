@@ -319,7 +319,7 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
               {/* Screen Recording deliberately has no row here: macOS 15+
                   makes a pre-grant unreliable (per-process status caching,
                   helper misattribution, periodic re-prompts) — the OS flow
-                  triggers on the first real capture in the Computer panel,
+                  triggers on the first real capture in Skill Recorder,
                   which is the moment the user has context for the dialog. */}
             </div>
             <button onClick={finish} className="mt-5 w-full rounded-lg bg-accent py-2.5 text-[15px] font-medium text-white">

@@ -1,18 +1,15 @@
 const screenshotNames = [
   'hero',
   'model-picker',
-  'computer-panel',
   'approval-card',
   'marketplace',
   'composio-multi-account',
   'context-menu',
   'app-settings',
-  'ubuntu-computer-panel',
   'docs-onboarding',
   'docs-engine-detection',
   'docs-fresh-bot',
   'docs-model-picker',
-  'docs-computer-panel',
   'docs-connected-apps',
   'docs-automations',
 ] as const;

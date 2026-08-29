@@ -161,17 +161,11 @@ export interface SendTurnInput {
      * bridge harness-controlled lets it turn connection requests into trusted
      * chat cards consistently across provider CLIs. */
     composio?: { command: string; args: string[]; env: Record<string, string> };
-    /** Cloud computer, reached through Roundtable's REST-to-MCP adapter.
-     * `control` is the harness's loopback who-is-driving endpoint: the
-     * adapter consults it so a person who takes the wheel in the panel
-     * pauses the bot's hands mid-turn instead of typing over them. */
+    /** Cloud computer, reached through Roundtable's REST-to-MCP adapter. */
     computer?: {
       kind?: "box";
       boxId: string;
       token: string;
-      control?:
-        | { pipe: string; path: string; token: string }
-        | { url: string; token: string };
     };
     /** Peer-agent comms: an MCP proxy (list_bots / ask_bot) that routes back
      * through the harness so this bot can message other bots. The harness

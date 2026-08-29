@@ -125,17 +125,6 @@ The Wayland chooser/select/persistent-stream/cancel/end/retry lifecycle has been
 24.04 GNOME Wayland session. Roundtable detects Wayland before XWayland when both `WAYLAND_DISPLAY` and
 `DISPLAY` exist, so capture cannot accidentally bypass portal-mediated behavior.
 
-Open the Computer panel and use the separate **Preview this computer** card. Capture never starts when the app
-or panel opens.
-
-- **Xorg:** **Start preview** captures the primary monitor directly.
-- **Wayland:** **Choose a screen** opens the GNOME portal chooser once. The selected stream stays open until
-  you press **Stop preview**, close the panel, end sharing from GNOME, or quit the app.
-
-Cancelling or ending Wayland sharing returns to a calm **Try again** state and never reopens the chooser
-automatically. Roundtable does not capture screen audio, remember the selected monitor after restart, or
-offer an **Open Settings** action on Linux.
-
 ## Validate a package change
 
 ```sh
@@ -160,13 +149,7 @@ considered for automatic discovery.
 
 ### A bot needs computer tools
 
-Choose **Box** in the Computer panel and add a Box API key in App Settings.
-
-### Screen preview does not start
-
-On Xorg, confirm the session has an active display with `echo "$XDG_SESSION_TYPE"`; it should print `x11`.
-On Wayland, confirm `xdg-desktop-portal` and the GNOME portal backend are running, then click **Try again** to
-open a new chooser. Cancelling or stopping sharing never causes an automatic second prompt.
+Add a Box API key in App Settings.
 
 ### The AppImage does not start
 

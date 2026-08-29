@@ -66,14 +66,13 @@ already have:
 - **Local first.** An Electron utility process owns every agent process and talks to the renderer over private,
   typed IPC. Transcripts, keys, and events live in `~/.Roundtable`, not a cloud or a loopback web service.
 - **Agents with hands.** Each bot can use a Box cloud Linux desktop, control a USB-connected Android device,
-  and work with 500+ apps through Composio. A separate, user-initiated screen preview lets you view this
-  computer without granting the bot control.
+  and work with 500+ apps through Composio.
 
 ## Features
 
 <table>
 <tr>
-<td width="50%" valign="top">
+<td colspan="2" width="100%" valign="top">
 
 ### 🧠 Pick a brain per bot
 
@@ -81,16 +80,6 @@ A model picker with a provider rail — Claude and Codex models side by side, de
 providers dimmed with the reason. Switch a bot's model mid-conversation.
 
 <img src="docs/screenshots/model-picker.png" alt="Model picker with provider rail" width="100%">
-
-</td>
-<td width="50%" valign="top">
-
-### 🖥️ Every bot gets a computer
-
-Open the Computer panel and the bot's Box cloud desktop spins up on its own — live screen preview while it
-works and **Open desktop** when you need to take control. Computer access can also be turned off per bot.
-
-<img src="docs/screenshots/computer-panel.png" alt="Computer panel with live screen preview" width="100%">
 
 </td>
 </tr>
@@ -182,7 +171,7 @@ native protocol into one canonical runtime event stream (logged per-thread as ND
 ```mermaid
 flowchart LR
     subgraph app ["Desktop renderer — React + Tailwind"]
-        UI[Chat UI · model picker · computer panel]
+        UI[Chat UI · model picker]
     end
     PRELOAD[Typed contextBridge]
     subgraph server ["Orchestration utility process"]
@@ -252,13 +241,10 @@ pnpm package:linux    # Ubuntu x64: .deb + AppImage
 |---|---|---|---|
 | Packaged app, embedded harness, local agent CLIs | Supported | Beta | Beta |
 | Composio and Box/cloud computers | Supported | Beta | Beta |
-| Explicit preview-only local screen capture | Supported | Beta | Beta |
 | USB Android device control | Supported | Beta | Beta |
 | Native on-device dictation | Supported | Planned | Planned |
 
-The Linux preview is user-initiated and view-only. On Wayland it uses the system portal chooser; on Xorg it captures
-the primary monitor directly. It never grants a bot control of this computer. Chat, preview, Box cloud computers,
-and USB Android device control remain available in both session types. See the
+Box cloud computers and USB Android device control remain available in both Linux session types. See the
 [Ubuntu Desktop guide](docs/linux-desktop.md) and tracking issue
 [#29](https://github.com/milind-soni/Roundtable/issues/29).
 

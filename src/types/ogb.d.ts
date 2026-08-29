@@ -147,15 +147,6 @@ type SkillRecordingPayload = {
       onPackageInstall?(cb: (url: string) => void): () => void;
       /** Updates the native Dock/taskbar unread indicator. */
       setUnreadCount?(count: number): void;
-      /** Opens a live desktop as a sandboxed window owned by Roundtable. */
-      desktopViewer?: {
-        open(url: string, title: string, contextId: string): Promise<boolean>;
-        /** Closes the live-desktop window, but only when it belongs to this bot. */
-        close(contextId: string): Promise<boolean>;
-        /** The current viewer state, for a panel to initialize from on mount. */
-        currentState(): Promise<{ open: boolean; contextId: string | null }>;
-        onState(cb: (state: { open: boolean; contextId: string | null }) => void): () => void;
-      };
       /** Native folder picker; resolves null when the user cancels. */
       pickFolder?(current?: string): Promise<string | null>;
       /** Writes the redacted diagnostics report to a user-chosen file;

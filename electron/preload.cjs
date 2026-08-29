@@ -107,17 +107,6 @@ contextBridge.exposeInMainWorld("ogb", {
   },
   /** Mirrors durable unread state into the native Dock/taskbar badge. */
   setUnreadCount: (count) => ipcRenderer.send("desktop:unread-count", count),
-  /** Live VNC/noVNC in a sandboxed window owned by the app window. */
-  desktopViewer: {
-    open: (url, title, contextId) => ipcRenderer.invoke("desktop-viewer:open", url, title, contextId),
-    close: (contextId) => ipcRenderer.invoke("desktop-viewer:close", contextId),
-    currentState: () => ipcRenderer.invoke("desktop-viewer:state-now"),
-    onState: (cb) => {
-      const handler = (_event, state) => cb(state);
-      ipcRenderer.on("desktop-viewer:state", handler);
-      return () => ipcRenderer.removeListener("desktop-viewer:state", handler);
-    },
-  },
   /** Native folder picker for a bot's working folder; null when cancelled. */
   pickFolder: (current) => ipcRenderer.invoke("desktop:pick-folder", current),
   /** Writes the redacted diagnostics report to a user-chosen file; resolves

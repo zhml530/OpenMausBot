@@ -1,29 +1,15 @@
 ---
-title: Give a bot a computer
-description: Use a Box cloud desktop or turn computer access off.
+title: Cloud computers
+description: Configure Box for isolated browser and desktop tools.
 icon: Monitor
 ---
 
-A bot can use an isolated Box cloud desktop or work with computer access turned off.
-
-<ProductScreenshot name="docs-computer-panel" alt="Roundtable computer panel offering Box and Off modes" caption="Computer access is explicit per bot and can be changed without changing its model." />
+A supported agent engine can use an isolated Box cloud desktop when a Box API key is configured in App Settings.
 
 | Backend | Isolation | Best for |
 |---|---|---|
 | Box cloud computer | Hosted remote desktop | Always-available isolated Linux work |
-| Off | None | Work that does not need browser or desktop tools |
-
-## Box and Off
-
-Computer selection is explicit per bot. Choose **Box** for browser and desktop tasks, or **Off** when the bot does not need computer tools.
-
-## Preview and takeover
-
-The Computer panel can show live frames while a bot works in Box. Box also provides an interactive desktop viewer so you can temporarily take control. Roundtable opens that viewer in the app when possible, with a browser fallback for external join flows.
-
-<Callout type="info" title="Local preview is view-only">
-  The separate preview of the computer running Roundtable is user-initiated and view-only. It does not give a bot control of the desktop.
-</Callout>
+| No Box key | None | Work that does not need browser or desktop tools |
 
 ## Android devices
 

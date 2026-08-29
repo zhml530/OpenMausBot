@@ -352,19 +352,12 @@ export interface AppState {
   webhookIngress: WebhookIngressStatus | null;
   settingsOpen: boolean;
   pluginsOpen: boolean;
-  computerOpen: boolean;
   /** the per-thread event inspector (runtime stream + native protocol tee) */
   inspectorOpen: boolean;
   appSettingsOpen: boolean;
   appSettingsSection: AppSettingsSection;
-  /** latest live frame of a bot's computer, per botId */
-  screens: Record<string, { png: string; mime: string }>;
   /** bots whose cloud computer is being provisioned */
   provisioning: Record<string, boolean>;
-  /** who is driving each bot's computer: held = the person has the wheel
-   * (the bot's hands are refused server-side); helpReason = the bot's open
-   * plea for the person to take over */
-  computerControl: Record<string, { held: boolean; helpReason: string | null }>;
   /** a search hit to scroll to once its thread is on screen; nonce lets the
    * same message be focused twice in a row */
   focusMessage: { threadId: string; messageId: string; nonce: number; consumed: boolean } | null;
@@ -401,7 +394,6 @@ export type Action =
       type: "hydrate";
       bots: Bot[];
       groups: Group[];
-      computerControl: Record<string, { held: boolean; helpReason: string | null }>;
     }
   | { type: "showRoutines" }
   | { type: "showTeamMap" }
@@ -467,16 +459,13 @@ export type Action =
   | { type: "botPatched"; bot: BotAnnouncement }
   | { type: "messageAdded"; threadId: string; message: Message }
   | { type: "messagePatched"; threadId: string; message: Message }
-  | { type: "screenFrame"; botId: string; png: string; mime: string }
   | { type: "provisioning"; botId: string; on: boolean }
-  | { type: "computerControl"; botId: string; held: boolean; helpReason: string | null }
   | { type: "setModel"; botId: string; selection: ModelSelection }
   | { type: "interrupt"; botId: string }
   | { type: "connected"; value: boolean }
   | { type: "error"; message: string | null }
   | { type: "toggleSettings"; open?: boolean }
   | { type: "togglePlugins"; open?: boolean }
-  | { type: "toggleComputer"; open?: boolean }
   | { type: "toggleInspector"; open?: boolean }
   | { type: "focusMessage"; threadId: string; messageId: string }
   | { type: "focusMessageConsumed"; nonce: number }
@@ -561,7 +550,6 @@ export function reducer(state: AppState, action: Action): AppState {
         ...state,
         bots: action.bots,
         groups: action.groups,
-        computerControl: action.computerControl,
         selectedId,
       };
     }
@@ -570,7 +558,6 @@ export function reducer(state: AppState, action: Action): AppState {
         ...state,
         activeView: "routines",
         settingsOpen: false,
-        computerOpen: false,
         inspectorOpen: false,
         appSettingsOpen: false,
         pluginsOpen: false,
@@ -580,7 +567,6 @@ export function reducer(state: AppState, action: Action): AppState {
         ...state,
         activeView: "team-map",
         settingsOpen: false,
-        computerOpen: false,
         inspectorOpen: false,
         appSettingsOpen: false,
         pluginsOpen: false,
@@ -591,7 +577,6 @@ export function reducer(state: AppState, action: Action): AppState {
         ...state,
         activeView: "skill-recorder",
         settingsOpen: false,
-        computerOpen: false,
         inspectorOpen: false,
         appSettingsOpen: false,
         pluginsOpen: false,
@@ -834,24 +819,10 @@ export function reducer(state: AppState, action: Action): AppState {
         messages: b.messages.map((m) => (m.id === action.message.id ? action.message : m)),
       }));
     }
-    case "screenFrame":
-      return {
-        ...withMascotMotion(state, action.botId, "success"),
-        screens: { ...state.screens, [action.botId]: { png: action.png, mime: action.mime } },
-        provisioning: { ...state.provisioning, [action.botId]: false },
-      };
     case "provisioning":
       return {
         ...(action.on ? withMascotMotion(state, action.botId, "launch") : state),
         provisioning: { ...state.provisioning, [action.botId]: action.on },
-      };
-    case "computerControl":
-      return {
-        ...state,
-        computerControl: {
-          ...state.computerControl,
-          [action.botId]: { held: action.held, helpReason: action.helpReason },
-        },
       };
     case "setModel":
       return updateBot(state, action.botId, (b) => ({ ...b, modelSelection: action.selection }));
@@ -864,13 +835,12 @@ export function reducer(state: AppState, action: Action): AppState {
           : state),
         error: action.message,
       };
-    // bot settings, the computer panel, and app settings share the right slot
+    // bot settings, the inspector, and app settings share the right slot
     case "toggleSettings": {
       const open = action.open ?? !state.settingsOpen;
       return {
         ...state,
         settingsOpen: open,
-        computerOpen: open ? false : state.computerOpen,
         inspectorOpen: open ? false : state.inspectorOpen,
         appSettingsOpen: open ? false : state.appSettingsOpen,
       };
@@ -890,23 +860,12 @@ export function reducer(state: AppState, action: Action): AppState {
     case "focusMessageConsumed":
       if (!state.focusMessage || state.focusMessage.nonce !== action.nonce) return state;
       return { ...state, focusMessage: { ...state.focusMessage, consumed: true } };
-    case "toggleComputer": {
-      const open = action.open ?? !state.computerOpen;
-      return {
-        ...state,
-        computerOpen: open,
-        settingsOpen: open ? false : state.settingsOpen,
-        inspectorOpen: open ? false : state.inspectorOpen,
-        appSettingsOpen: open ? false : state.appSettingsOpen,
-      };
-    }
     case "toggleInspector": {
       const open = action.open ?? !state.inspectorOpen;
       return {
         ...state,
         inspectorOpen: open,
         settingsOpen: open ? false : state.settingsOpen,
-        computerOpen: open ? false : state.computerOpen,
         appSettingsOpen: open ? false : state.appSettingsOpen,
       };
     }
@@ -917,7 +876,6 @@ export function reducer(state: AppState, action: Action): AppState {
         appSettingsOpen: open,
         appSettingsSection: action.section ?? state.appSettingsSection,
         settingsOpen: open ? false : state.settingsOpen,
-        computerOpen: open ? false : state.computerOpen,
         inspectorOpen: open ? false : state.inspectorOpen,
         pluginsOpen: open ? false : state.pluginsOpen,
       };
@@ -1064,13 +1022,10 @@ export const initialState: AppState = {
   webhookIngress: null,
   settingsOpen: false,
   pluginsOpen: false,
-  computerOpen: false,
   inspectorOpen: false,
   appSettingsOpen: false,
   appSettingsSection: "general",
-  screens: {},
   provisioning: {},
-  computerControl: {},
   focusMessage: null,
   connected: false,
   error: null,
@@ -1481,12 +1436,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const loadAll = () =>
       Promise.all([
         api("/api/bots")
-          .then(({ bots, groups, computerControl }) =>
+          .then(({ bots, groups }) =>
             alive && rawDispatch({
               type: "hydrate",
               bots,
               groups: groups ?? [],
-              computerControl: computerControl ?? {},
             }))
           .catch(() => {}),
         api("/api/instances")
@@ -1667,19 +1621,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           }
           break;
         }
-        case "screen":
-          rawDispatch({ type: "screenFrame", botId: frame.botId, png: frame.png, mime: frame.mime ?? "image/png" });
-          break;
         case "computer":
           rawDispatch({ type: "provisioning", botId: frame.botId, on: frame.state === "provisioning" });
-          break;
-        case "computer-control":
-          rawDispatch({
-            type: "computerControl",
-            botId: frame.botId,
-            held: frame.held === true,
-            helpReason: typeof frame.helpReason === "string" ? frame.helpReason : null,
-          });
           break;
         case "bot.deleted":
           botPatchQueue.cancel(frame.botId);
