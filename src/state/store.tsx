@@ -351,7 +351,6 @@ export interface AppState {
   webhookAttempts: WebhookAttempt[];
   webhookIngress: WebhookIngressStatus | null;
   settingsOpen: boolean;
-  pluginsOpen: boolean;
   /** the per-thread event inspector (runtime stream + native protocol tee) */
   inspectorOpen: boolean;
   appSettingsOpen: boolean;
@@ -465,7 +464,6 @@ export type Action =
   | { type: "connected"; value: boolean }
   | { type: "error"; message: string | null }
   | { type: "toggleSettings"; open?: boolean }
-  | { type: "togglePlugins"; open?: boolean }
   | { type: "toggleInspector"; open?: boolean }
   | { type: "focusMessage"; threadId: string; messageId: string }
   | { type: "focusMessageConsumed"; nonce: number }
@@ -560,7 +558,6 @@ export function reducer(state: AppState, action: Action): AppState {
         settingsOpen: false,
         inspectorOpen: false,
         appSettingsOpen: false,
-        pluginsOpen: false,
       };
     case "showTeamMap":
       return {
@@ -569,7 +566,6 @@ export function reducer(state: AppState, action: Action): AppState {
         settingsOpen: false,
         inspectorOpen: false,
         appSettingsOpen: false,
-        pluginsOpen: false,
       };
     case "showSkillRecorder":
       if (!skillRecorderEnabled(state.config)) return state;
@@ -579,7 +575,6 @@ export function reducer(state: AppState, action: Action): AppState {
         settingsOpen: false,
         inspectorOpen: false,
         appSettingsOpen: false,
-        pluginsOpen: false,
       };
     case "routinesHydrated":
       return { ...state, routines: action.routines, routineRuns: action.runs };
@@ -845,8 +840,6 @@ export function reducer(state: AppState, action: Action): AppState {
         appSettingsOpen: open ? false : state.appSettingsOpen,
       };
     }
-    case "togglePlugins":
-      return { ...state, pluginsOpen: action.open ?? !state.pluginsOpen };
     case "focusMessage":
       return {
         ...state,
@@ -877,7 +870,6 @@ export function reducer(state: AppState, action: Action): AppState {
         appSettingsSection: action.section ?? state.appSettingsSection,
         settingsOpen: open ? false : state.settingsOpen,
         inspectorOpen: open ? false : state.inspectorOpen,
-        pluginsOpen: open ? false : state.pluginsOpen,
       };
     }
     case "updateBot": {
@@ -1021,7 +1013,6 @@ export const initialState: AppState = {
   webhookAttempts: [],
   webhookIngress: null,
   settingsOpen: false,
-  pluginsOpen: false,
   inspectorOpen: false,
   appSettingsOpen: false,
   appSettingsSection: "general",

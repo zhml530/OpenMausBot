@@ -8,7 +8,6 @@ import { Sidebar } from "@/components/Sidebar";
 import { ChatView } from "@/components/ChatView";
 import { GroupView } from "@/components/GroupView";
 import { SettingsPanel } from "@/components/SettingsPanel";
-import { PluginsPanel, preloadConnectedApps } from "@/components/PluginsPanel";
 import { InspectorPanel } from "@/components/InspectorPanel";
 import { SettingsModal } from "@/components/SettingsModal";
 import { UpdateBanner } from "@/components/UpdateBanner";
@@ -74,23 +73,15 @@ function Shell() {
     window.ogb?.setUnreadCount?.(unreadCount);
   }, [unreadCount]);
 
-  // Warm connected-account state as soon as the local server is available.
-  // The modal then opens with the correct Connect/Add account buttons and
-  // quietly revalidates instead of rediscovering every account from scratch.
-  useEffect(() => {
-    if (!state.connected) return;
-    void preloadConnectedApps().catch(() => {});
-  }, [state.connected]);
-
   // Picking a conversation closes the drawer: on a phone the chat is what you
   // asked for, and leaving the list up would hide it. Watching activeView too
   // catches re-selecting the bot that is already current from another view —
-  // the reducer switches the view without changing selectedId. pluginsOpen
-  // and settingsOpen cover the same idea from a different trigger: close the
-  // drawer whenever an action opens something over the chat.
+  // the reducer switches the view without changing selectedId. settingsOpen
+  // covers the same idea from a different trigger: close the drawer whenever
+  // an action opens something over the chat.
   useEffect(() => {
     setDrawerOpen(false);
-  }, [state.selectedId, state.activeView, state.pluginsOpen, state.settingsOpen]);
+  }, [state.selectedId, state.activeView, state.settingsOpen]);
 
   return (
     <div className="flex h-full flex-col">
@@ -149,7 +140,6 @@ function Shell() {
       {state.settingsOpen && bot && <SettingsPanel bot={bot} />}
       {state.inspectorOpen && bot && <InspectorPanel bot={bot} />}
       {state.appSettingsOpen && <SettingsModal />}
-      {state.pluginsOpen && <PluginsPanel />}
       {/* mounted after the modals: same z-50 tier, so DOM order keeps the
           palette on top when one of them is open underneath */}
       <CommandPalette />

@@ -329,7 +329,6 @@ export function SettingsPanel({ bot }: { bot: Bot }) {
         | "voice"
         | "chiefOfStaff"
         | "approvePeerComms"
-        | "composio"
         | "modelSelection"
       >
     >,
@@ -338,9 +337,6 @@ export function SettingsPanel({ bot }: { bot: Bot }) {
   const mascotMotion = state.mascotMotion?.botId === bot.id ? state.mascotMotion : null;
   const engine = state.instances.find((instance) => instance.instanceId === bot.modelSelection.instanceId);
   const canCoordinate = engine?.capabilities?.agentsMcp === true;
-  const canUseConnectedApps = engine?.capabilities?.composioMcp === true;
-  const connectedAppsConfigured = state.config?.composio?.configured === true;
-  const connectedAppsEnabled = bot.composio !== false;
   const sectionName = bot.section?.trim() || "General";
   const currentChief = state.bots.find(
     (candidate) =>
@@ -483,48 +479,6 @@ export function SettingsPanel({ bot }: { bot: Bot }) {
                 className={cn(
                   "absolute top-[3px] size-5 rounded-full bg-white transition-all",
                   bot.approvePeerComms ? "left-[21px]" : "left-[3px]",
-                )}
-              />
-            </button>
-          </div>
-
-          <div className="flex items-center justify-between gap-4 rounded-xl bg-card p-4">
-            <div>
-              <div className="text-[15px] font-medium text-ink">Connected apps</div>
-              <div className="mt-0.5 text-[13px] text-ink-secondary">
-                {!connectedAppsConfigured
-                  ? "Connect apps in App Settings before giving this bot access."
-                  : !canUseConnectedApps
-                    ? "This bot's current engine cannot use connected apps."
-                    : connectedAppsEnabled
-                      ? "Let this bot use your connected Gmail, Calendar, Slack, and other apps."
-                      : "Keep your connected apps unavailable to this bot."}
-              </div>
-            </div>
-            <button
-              role="switch"
-              aria-checked={connectedAppsEnabled}
-              aria-label="Allow this bot to use connected apps"
-              disabled={
-                !connectedAppsEnabled && (!connectedAppsConfigured || !canUseConnectedApps)
-              }
-              onClick={() => patch({ composio: !connectedAppsEnabled })}
-              title={
-                !connectedAppsEnabled && !connectedAppsConfigured
-                  ? "Connect apps in App Settings first"
-                  : !connectedAppsEnabled && !canUseConnectedApps
-                    ? "This engine cannot use connected apps"
-                    : undefined
-              }
-              className={cn(
-                "relative h-[26px] w-[44px] shrink-0 rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-40",
-                connectedAppsEnabled ? "bg-accent" : "bg-control",
-              )}
-            >
-              <span
-                className={cn(
-                  "absolute top-[3px] size-5 rounded-full bg-white transition-all",
-                  connectedAppsEnabled ? "left-[21px]" : "left-[3px]",
                 )}
               />
             </button>

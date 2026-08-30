@@ -26,7 +26,6 @@ import {
   Search,
   Sparkles,
   Settings,
-  Puzzle,
   Trash2,
   Users,
   X,
@@ -1548,15 +1547,6 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
           {state.routineRuns.some((run) => ["failed", "missed"].includes(run.status) && !run.seenAt) && (
             <span className="size-2 rounded-full bg-danger" />
           )}
-        </button>
-        <button
-          onClick={() => dispatch({ type: "togglePlugins", open: true })}
-          className={cn("flex min-h-10 w-full items-center rounded-xl py-2 text-left hover:bg-raised/50", density === "icons" ? "justify-center px-2" : "gap-3 px-3")}
-          aria-label={density === "icons" ? "Connected apps" : undefined}
-          title={density === "icons" ? "Connected apps" : undefined}
-        >
-          <Puzzle size={20} className="text-ink-secondary" />
-          <span className={cn("text-[14px] text-ink", density === "icons" && "hidden")}>Connected apps</span>
         </button>
         <div className={cn("flex items-center", density === "icons" && "justify-center")}>
           <button

@@ -6,22 +6,17 @@ import { Check, CircleHelp, ExternalLink, Loader2, TriangleAlert } from "lucide-
 import { api, useStore, type ConfigStatus } from "@/state/store";
 import { cn } from "@/lib/cn";
 
-export type ConfigSection = "composio" | "box" | "opencodeGo";
+export type ConfigSection = "box" | "opencodeGo";
 
 const SECTIONS: Record<
   ConfigSection,
   { body: (value: string) => unknown; flag: (config: ConfigStatus) => boolean }
 > = {
-  composio: {
-    body: (v) => ({ composio: { apiKey: v } }),
-    flag: (c) => c.composio.configured,
-  },
   box: { body: (v) => ({ box: { token: v } }), flag: (c) => c.box.configured },
   opencodeGo: { body: (v) => ({ opencodeGo: { apiKey: v } }), flag: (c) => c.opencodeGo?.configured ?? false },
 };
 
-const ELECTRON_CREDENTIAL: Record<ConfigSection, "composioApiKey" | "boxToken" | "opencodeGoApiKey"> = {
-  composio: "composioApiKey",
+const ELECTRON_CREDENTIAL: Record<ConfigSection, "boxToken" | "opencodeGoApiKey"> = {
   box: "boxToken",
   opencodeGo: "opencodeGoApiKey",
 };
@@ -38,14 +33,6 @@ const CREDENTIALS: Record<
     warning?: string;
   }
 > = {
-  composio: {
-    label: "Composio project key",
-    placeholder: "ak_…",
-    description: "Connect Gmail, GitHub, Slack, Notion, and other apps through your own Composio project.",
-    href: "https://dashboard.composio.dev",
-    linkLabel: "Create or copy a project key",
-    optional: true,
-  },
   box: {
     label: "Box API key",
     placeholder: "Paste your Box API key",

@@ -5,14 +5,11 @@ import type { AppConfig } from "./config.ts";
 import {
   applyManagedBrokerMessage,
   authorizeService,
-  connectedServices,
   connectionMode,
   connectionStatus,
   mcpIntegration,
   normalizeAccountAlias,
   prepareProjectSession,
-  removeAccount,
-  removeService,
   setManagedBrokerAccess,
 } from "./composio.ts";
 
@@ -20,7 +17,6 @@ let api: Server;
 let base = "";
 const calls: Array<{ method: string; path: string; query: string; body: any }> = [];
 let malformedConnectedAccounts = false;
-let connectedAccountsUnavailable = false;
 
 beforeAll(async () => {
   api = createServer(async (req, res) => {
@@ -88,10 +84,6 @@ beforeAll(async () => {
       return res.end(JSON.stringify(page));
     }
     if (req.method === "GET" && url.pathname === "/api/v3.1/connected_accounts") {
-      if (connectedAccountsUnavailable) {
-        res.writeHead(403, { "content-type": "application/json" });
-        return res.end(JSON.stringify({ error: "connected-account read not granted" }));
-      }
       res.writeHead(200, { "content-type": "application/json" });
       if (malformedConnectedAccounts) return res.end(JSON.stringify({ items: {} }));
       if (url.searchParams.get("cursor") === "accounts-page-2") {
@@ -267,7 +259,7 @@ describe.sequential("Composio Sessions", () => {
     });
   });
 
-  it("reports connection state, creates auth links and revokes disconnects", async () => {
+  it("reports connection state and creates auth links", async () => {
     const cfg: AppConfig = {
       composio: { apiKey: "ak_test", userId: "Roundtable_existing", sessionId: "trs_test" },
     };
@@ -308,84 +300,6 @@ describe.sequential("Composio Sessions", () => {
       toolkit: "github",
       alias: "personal-two",
     });
-    await expect(removeAccount(cfg, "github", "ca_github_personal")).resolves.toEqual({ removed: 1 });
-    await expect(removeAccount(cfg, "github", "ca_other_user")).resolves.toEqual({ removed: 0 });
-    await expect(removeAccount(cfg, "github", "../other")).rejects.toThrow(/invalid connected-account ID/i);
-    await expect(removeService(cfg, "github")).resolves.toEqual({ removed: 1 });
-    expect(calls.some(
-      (call) => call.method === "DELETE"
-        && call.path.endsWith("/connected_accounts/ca_github")
-        && call.query === "?revoke_on_delete=true",
-    )).toBe(true);
-  });
-
-  it("enumerates connected services independently of catalog position", async () => {
-    const cfg: AppConfig = {
-      composio: { apiKey: "ak_test", userId: "Roundtable_existing", sessionId: "trs_test" },
-    };
-    const callCount = calls.length;
-
-    await expect(connectedServices(cfg)).resolves.toMatchObject({
-      toolkit_41: {
-        connected: true,
-        pending: false,
-        status: "ACTIVE",
-        accounts: [{ id: "ca_toolkit_41", alias: "overflow", status: "ACTIVE" }],
-      },
-      github: {
-        accounts: [
-          { id: "ca_github_personal", alias: "personal", status: "ACTIVE" },
-          { id: "ca_github_work", alias: "work", status: "ACTIVE" },
-          { id: "ca_github", status: "ACTIVE" },
-        ],
-      },
-      publicsearch: {
-        connected: true,
-        pending: false,
-        status: "ACTIVE",
-        accounts: [],
-      },
-      selectedonly: {
-        connected: true,
-        pending: false,
-        status: "ACTIVE",
-        accounts: [{ id: "ca_session_only", status: "ACTIVE" }],
-      },
-    });
-
-    const inventoryCalls = calls.slice(callCount).filter((call) => call.path.endsWith("/connected_accounts"));
-    expect(inventoryCalls).toHaveLength(2);
-    expect(inventoryCalls[0]?.query).not.toContain("toolkit_slugs=");
-    expect(inventoryCalls[1]?.query).toContain("cursor=accounts-page-2");
-    const toolkitCalls = calls.slice(callCount).filter((call) => call.path.endsWith("/toolkits"));
-    expect(toolkitCalls).toHaveLength(2);
-    expect(toolkitCalls[0]?.query).toContain("is_connected=true");
-    expect(toolkitCalls[1]?.query).toContain("cursor=toolkits-page-2");
-  });
-
-  it("falls back to complete Session toolkit state without connected-account read permission", async () => {
-    const cfg: AppConfig = {
-      composio: { apiKey: "ak_test", userId: "Roundtable_existing", sessionId: "trs_test" },
-    };
-    connectedAccountsUnavailable = true;
-    try {
-      await expect(connectedServices(cfg)).resolves.toMatchObject({
-        github: {
-          connected: true,
-          status: "ACTIVE",
-          accounts: [{ id: "ca_github", status: "ACTIVE" }],
-        },
-        gmail: { connected: true, status: "ACTIVE", accounts: [] },
-        publicsearch: { connected: true, status: "ACTIVE", accounts: [] },
-        selectedonly: {
-          connected: true,
-          status: "ACTIVE",
-          accounts: [{ id: "ca_session_only", status: "ACTIVE" }],
-        },
-      });
-    } finally {
-      connectedAccountsUnavailable = false;
-    }
   });
 
   it("falls back to session toolkit state when connected-account items is malformed", async () => {
