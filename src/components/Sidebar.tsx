@@ -761,14 +761,10 @@ function BotListItem({
   bot,
   density,
   onMenu,
-  onArchive,
-  archiveDisabled,
 }: {
   bot: Bot;
   density: SidebarDensity;
   onMenu: (menu: MenuState) => void;
-  onArchive: (bot: Bot) => void;
-  archiveDisabled: boolean;
 }) {
   const { state, dispatch } = useStore();
   const [renaming, setRenaming] = useState(false);
@@ -788,8 +784,8 @@ function BotListItem({
     iconOnly
       ? "justify-center px-1 py-1.5"
       : density === "compact"
-        ? "gap-2 px-2 py-2 pr-10"
-        : "gap-2.5 px-2.5 py-1.5 pr-10",
+        ? "gap-2 px-2 py-2"
+        : "gap-2.5 px-2.5 py-1.5",
     selected
       ? cn("border-transparent", conversationSelectionClass(true))
       : bot.chiefOfStaff
@@ -883,22 +879,6 @@ function BotListItem({
       {iconOnly && bot.unread && (
         <span className="pointer-events-none absolute bottom-1.5 right-1.5 size-2 rounded-full border border-panel bg-accent" />
       )}
-      {!iconOnly && <button
-        type="button"
-        disabled={archiveDisabled}
-        onClick={() => onArchive(bot)}
-        aria-label={`Archive ${bot.name}`}
-        title={
-          bot.chiefOfStaff
-            ? "Choose another Chief of Staff first"
-            : archiveDisabled
-              ? "Keep at least one active bot"
-              : `Archive ${bot.name}`
-        }
-        className="absolute right-1 top-1/2 flex size-8 -translate-y-1/2 items-center justify-center rounded-md bg-transparent text-ink-secondary opacity-0 transition hover:bg-raised hover:text-ink focus:opacity-100 disabled:cursor-default disabled:opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 max-md:opacity-100"
-      >
-        <Archive size={14} />
-      </button>}
     </div>
   );
 }
@@ -1280,7 +1260,6 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
   for (const group of sectionedGroups) {
     if (!sectionNames.includes(group.section!)) sectionNames.push(group.section!);
   }
-  const activeBotCount = state.bots.filter((bot) => !bot.hidden).length;
   const archivedBots = state.bots.filter((bot) => bot.hidden);
   const pendingTeamUndo = teamFeedback?.undo;
   const pendingBotUndo = teamFeedback?.restoreBot;
@@ -1474,8 +1453,6 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
                 bot={unsectionedChief}
                 density={density}
                 onMenu={setMenu}
-                onArchive={(bot) => void archiveBot(bot)}
-                archiveDisabled
               />
             </div>
           )}
@@ -1490,8 +1467,6 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
               bot={b}
               density={density}
               onMenu={setMenu}
-              onArchive={(bot) => void archiveBot(bot)}
-              archiveDisabled={activeBotCount <= 1}
             />
           ))}
           {sectionNames.map((name) => (
@@ -1505,8 +1480,6 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
                     bot={bot}
                     density={density}
                     onMenu={setMenu}
-                    onArchive={(candidate) => void archiveBot(candidate)}
-                    archiveDisabled
                   />
                 ))}
               {sectionedGroups
@@ -1522,8 +1495,6 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
                     bot={b}
                     density={density}
                     onMenu={setMenu}
-                    onArchive={(bot) => void archiveBot(bot)}
-                    archiveDisabled={activeBotCount <= 1}
                   />
                 ))}
             </Fragment>
