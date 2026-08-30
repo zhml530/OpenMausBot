@@ -6,8 +6,25 @@ import { createLocalRpcEndpoint, startLocalRpcServer } from "./local-rpc.ts";
 process.env.OMB_TRANSPORT = "ipc";
 process.env.OMB_HARNESS_PIPE = createLocalRpcEndpoint();
 
-const { handleRequest, subscribeDesktopFrames } = await import("./index.ts");
-const localRpcServer = await startLocalRpcServer(process.env.OMB_HARNESS_PIPE, handleRequest);
+type UtilityParentPort = EventEmitter & { postMessage(message: unknown): void };
+const parentPort = (process as typeof process & { parentPort?: UtilityParentPort }).parentPort;
+
+if (!parentPort) throw new Error("Roundtable orchestration host requires an Electron utility-process parent port");
+
+const post = (message: unknown) => parentPort.postMessage(message);
+let closeLocalRpcServer = () => {};
+
+// Importing the harness initializes every configured provider and can include
+// bounded CLI/model/auth probes. Accept Electron IPC first and let requests
+// wait on that initialization promise; provider speed must not decide whether
+// the desktop treats a healthy child as a startup failure.
+const initialization = (async () => {
+  const { handleRequest, subscribeDesktopFrames } = await import("./index.ts");
+  const localRpcServer = await startLocalRpcServer(process.env.OMB_HARNESS_PIPE!, handleRequest);
+  closeLocalRpcServer = () => localRpcServer.close();
+  subscribeDesktopFrames((frame) => post({ type: "roundtable:event", frame }));
+  return handleRequest;
+})();
 
 export interface DesktopRequest {
   method?: string;
@@ -87,18 +104,11 @@ type HostMessage =
   | { type: "roundtable:request"; id: string; request: DesktopRequest }
   | { type: "Roundtable:managed-composio"; access?: unknown };
 
-const parentPort = (process as typeof process & {
-  parentPort?: EventEmitter & { postMessage(message: unknown): void };
-}).parentPort;
-
-if (!parentPort) throw new Error("Roundtable orchestration host requires an Electron utility-process parent port");
-
-const post = (message: unknown) => parentPort.postMessage(message);
-
 parentPort.on("message", async (event: { data?: HostMessage } | HostMessage) => {
   const message = ("data" in event ? event.data : event) as HostMessage | undefined;
   if (!message || message.type !== "roundtable:request") return;
   try {
+    const handleRequest = await initialization;
     const response = await new Promise<DesktopResponse>((resolve, reject) => {
       const req = new IpcRequest(message.request);
       const res = new IpcResponse(resolve);
@@ -118,7 +128,6 @@ parentPort.on("message", async (event: { data?: HostMessage } | HostMessage) => 
   }
 });
 
-subscribeDesktopFrames((frame) => post({ type: "roundtable:event", frame }));
 post({ type: "roundtable:ready", pid: process.pid, endpoint: process.env.OMB_HARNESS_PIPE });
 
-process.once("exit", () => localRpcServer.close());
+process.once("exit", () => closeLocalRpcServer());

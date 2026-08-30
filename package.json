@@ -28,7 +28,7 @@
     "docs:dev": "pnpm --filter @Roundtable/docs dev",
     "docs:build": "pnpm --filter @Roundtable/docs build",
     "docs:preview": "pnpm --filter @Roundtable/docs preview",
-    "dev:desktop": "pnpm build:server && electron .",
+    "dev:desktop": "pnpm build:server && node scripts/dev-desktop.mjs",
     "build": "tsc -b && tsc -p tsconfig.server.json && vite build",
     "typecheck": "tsc -b && tsc -p tsconfig.server.json",
     "test": "node scripts/test-floor.mjs && pnpm broker:test && pnpm test:updater && pnpm test:package-link",
@@ -87,4 +87,3 @@
     "wrangler": "4.123.0"
   }
 }
-

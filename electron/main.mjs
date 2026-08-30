@@ -171,6 +171,9 @@ let orchestrationProc = null;
 let orchestrationReady = true;
 let appQuitting = false;
 const orchestrationRequests = new Map();
+// This only guards the child's IPC bootstrap. Provider initialization runs
+// behind the child's request queue and must never be part of this deadline.
+const ORCHESTRATION_START_TIMEOUT_MS = 45_000;
 let secureCredentials = {};
 let secureCredentialState = null;
 
@@ -401,7 +404,7 @@ async function startOrchestrationHost() {
     pending.resolve(message.response);
   });
   const ready = await new Promise((resolve) => {
-    const timeout = setTimeout(() => resolve(false), 20_000);
+    const timeout = setTimeout(() => resolve(false), ORCHESTRATION_START_TIMEOUT_MS);
     proc.on("message", (message) => {
       if (message?.type !== "roundtable:ready") return;
       clearTimeout(timeout);

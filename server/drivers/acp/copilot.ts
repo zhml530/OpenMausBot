@@ -178,9 +178,15 @@ export async function fetchCopilotModels(
   run: typeof execCli = execCli,
   spawnProcess: typeof spawnCli = spawnCli,
 ): Promise<ModelCatalog> {
-  const session = await probeCopilotAcpModels(cli, env, spawnProcess);
+  // Start the help fallback at the same time as the account-specific ACP
+  // probe. A CLI that accepts `--acp` but never completes the handshake can
+  // consume the full 15-second ACP deadline; starting the 8-second fallback
+  // only afterwards made desktop startup exceed Electron's host deadline.
+  const [session, help] = await Promise.all([
+    probeCopilotAcpModels(cli, env, spawnProcess),
+    execText(run, cli, ["--help"], env),
+  ]);
   if (session) return session;
-  const help = await execText(run, cli, ["--help"], env);
   const live = help ? decodeCopilotModelHelp(help) : null;
   if (!live) return STATIC_COPILOT_MODELS;
   const configured = env.COPILOT_MODEL?.trim();

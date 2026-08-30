@@ -31,6 +31,7 @@ export default defineConfig({
     // clients that resolve IPv4 first
     host: "127.0.0.1",
     port: Number(process.env.OMB_UI_PORT) || 5199,
+    strictPort: true,
     // packager output lands inside the repo — its HTML files must never
     // trigger dev full-page reloads
     watch: {

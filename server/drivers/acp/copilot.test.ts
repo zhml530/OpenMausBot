@@ -1,6 +1,8 @@
+import { EventEmitter } from "node:events";
 import { chmodSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
+import { PassThrough } from "node:stream";
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
 
@@ -14,6 +16,7 @@ import {
   CopilotAgentDriver,
   decodeCopilotModelHelp,
   decodeCopilotSessionModels,
+  fetchCopilotModels,
   probeCopilotAcpModels,
 } from "./copilot.ts";
 
@@ -92,6 +95,44 @@ describe("GitHub Copilot ACP support", () => {
         { id: "auto", label: "Auto" },
         { id: "gpt-5.6-sol", label: "GPT-5.6 Sol" },
         { id: "grok-4.6", label: "Grok 4.6" },
+      ],
+    });
+  });
+
+  it("starts the help fallback without waiting for a stalled ACP probe", async () => {
+    const child = new EventEmitter() as EventEmitter & {
+      stdin: PassThrough;
+      stdout: PassThrough;
+      stderr: PassThrough;
+      pid: number;
+    };
+    child.stdin = new PassThrough();
+    child.stdout = new PassThrough();
+    child.stderr = new PassThrough();
+    child.pid = 12345;
+
+    let helpCallback: ((error: Error | null, stdout: string) => void) | undefined;
+    const run = ((_cli, args, _options, callback) => {
+      expect(args).toEqual(["--help"]);
+      helpCallback = callback;
+      return child;
+    }) as typeof import("../../procs.ts").execCli;
+    const spawnProcess = (() => child) as unknown as typeof import("../../procs.ts").spawnCli;
+
+    const catalogPromise = fetchCopilotModels("copilot", {}, run, spawnProcess);
+    expect(helpCallback).toBeTypeOf("function");
+
+    helpCallback!(null, `
+  --model <model>  Set the AI model to use (choices: "auto", "gpt-5.6-sol")
+  --no-color        Disable color
+    `);
+    child.emit("error", new Error("ACP handshake stalled"));
+
+    await expect(catalogPromise).resolves.toEqual({
+      default: "auto",
+      options: [
+        { id: "auto", label: "Auto" },
+        { id: "gpt-5.6-sol", label: "GPT 5.6 Sol" },
       ],
     });
   });
