@@ -10,13 +10,13 @@ Choose your computer below. Each link always downloads the latest published buil
 
 | Platform | Recommended package | Notes |
 |---|---|---|
-| macOS Apple silicon | [Download `.dmg`](https://github.com/milind-soni/Roundtable-releases/releases/latest/download/Roundtable.dmg) | Signed and notarized. Drag to Applications. |
-| macOS Intel | [Download `.dmg`](https://github.com/milind-soni/Roundtable-releases/releases/latest/download/Roundtable-intel.dmg) | Signed and notarized. |
-| Windows x64 | [Download installer](https://github.com/milind-soni/Roundtable-releases/releases/latest/download/Roundtable-setup.exe) | Per-user installer; Windows signing is not yet available. |
-| Ubuntu 24.04 x64 | [Download `.deb`](https://github.com/milind-soni/Roundtable-releases/releases/latest/download/Roundtable-amd64.deb) · [AppImage](https://github.com/milind-soni/Roundtable-releases/releases/latest/download/Roundtable.AppImage) | The `.deb` is recommended; the AppImage is portable. |
+| macOS Apple silicon | [Download `.dmg`](https://github.com/zhml530/Roundtable/releases/latest/download/Roundtable.dmg) | Available after the new repository publishes a signed release. |
+| macOS Intel | [Download `.dmg`](https://github.com/zhml530/Roundtable/releases/latest/download/Roundtable-intel.dmg) | Available after the new repository publishes a signed release. |
+| Windows x64 | [Download installer](https://github.com/zhml530/Roundtable/releases/latest/download/Roundtable-setup.exe) | Per-user installer; Windows signing is not yet available. |
+| Ubuntu 24.04 x64 | [Download `.deb`](https://github.com/zhml530/Roundtable/releases/latest/download/Roundtable-amd64.deb) · [AppImage](https://github.com/zhml530/Roundtable/releases/latest/download/Roundtable.AppImage) | The `.deb` is recommended; the AppImage is portable. |
 
 <Callout type="warn" title="Windows SmartScreen">
-  The Windows installer is not code-signed yet. Windows may show “Unknown publisher.” Verify that you downloaded it from the official Roundtable releases repository before choosing **More info → Run anyway**.
+  The Windows installer is not code-signed yet. Windows may show “Unknown publisher.” Verify that you downloaded it from the official Roundtable releases page before choosing **More info → Run anyway**.
 </Callout>
 
 ## Install an agent CLI
@@ -35,17 +35,15 @@ See [Agent engines](../providers/index.mdx) for the complete list and explicit p
 Requirements: Node.js 24 or newer, pnpm 10.33.0, and at least one authenticated agent CLI.
 
 ```bash
-git clone https://github.com/milind-soni/Roundtable.git
+git clone https://github.com/zhml530/Roundtable.git
 cd Roundtable
 corepack enable
 pnpm install --frozen-lockfile
 ```
 
-Run the harness, web UI, and Electron shell in separate terminals:
+Build the orchestration server, start Vite, and launch Electron with:
 
 ```bash
-pnpm dev:server
-pnpm dev
 pnpm dev:desktop
 ```
 

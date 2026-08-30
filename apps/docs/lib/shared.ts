@@ -4,7 +4,7 @@ export const docsContentRoute = '/llms.mdx/docs';
 export const appName = 'Roundtable Docs';
 
 export const gitConfig = {
-  user: 'milind-soni',
+  user: 'zhml530',
   repo: 'Roundtable',
   branch: 'main',
 };

@@ -1,7 +1,11 @@
 Roundtable
-Copyright 2026 Milind Soni and Roundtable contributors
+Copyright 2026 Minliang Zhou
 
-Roundtable was relicensed from the MIT License to the Apache License,
-Version 2.0, with the consent of all contributors whose copyright was
-incorporated before the transition.
+This product includes software derived from OpenMausBot:
+https://github.com/milind-soni/OpenMausBot
+Copyright 2026 Milind Soni and OpenMausBot contributors
 
+OpenMausBot and Roundtable are licensed under the Apache License,
+Version 2.0. Roundtable contains substantial modifications and is developed
+independently; it is not an official release of or affiliated with the
+OpenMausBot project.

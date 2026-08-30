@@ -1,149 +1,63 @@
 # Contributing to Roundtable
 
-Thanks for wanting to help — community PRs have already shipped in this repo, and more are welcome.
-This file tells you how to get a working dev setup, what the codebase expects from a change, and what
-makes a PR easy to merge. Read it once before opening anything; it's short on purpose.
+Roundtable is developed independently from OpenMausBot. Please open Roundtable issues and pull requests in this repository rather than in the upstream project.
 
-## Ground rules
+## Before you start
 
-- **Small, focused PRs.** One concern per PR. A PR that ports a platform *and* adds a feature *and*
-  refactors will be asked to split. Big changes: open an issue first and agree on the approach.
-- **Match the altitude.** This codebase is deliberately small and direct — plain Node, no frameworks
-  on the server, one store, one event bus. Don't introduce a dependency where thirty lines of code
-  will do. New runtime dependencies need a reason in the PR description.
-- **Keep it green.** `pnpm typecheck && pnpm test` must pass. Server changes need tests (see below).
-- **UI changes need screenshots.** Before/after images in the PR body; video for anything animated.
-  Match the existing palette and tone in [`src/styles.css`](src/styles.css).
+- Search existing issues and pull requests.
+- Keep changes focused and explain the user-visible behavior they alter.
+- Never commit API keys, tokens, provider credentials, local event logs, or contents of `~/.Roundtable`.
+- Preserve the Apache 2.0 license headers and upstream attribution where applicable.
 
-## Dev setup
+## Development setup
 
-Requirements: **Node 24+**, **pnpm**, and for actually chatting with a bot, at least one agent CLI
-([`claude`](https://claude.com/claude-code) or [`codex`](https://github.com/openai/codex)) installed
-and logged in. macOS is the primary release platform and Ubuntu 24.04 x64 is the Linux desktop beta;
-the harness server itself is portable Node and the test suite runs on macOS, Linux, and Windows.
+Use Node.js 24 or newer and pnpm 10.
 
 ```sh
-git clone https://github.com/milind-soni/Roundtable && cd Roundtable
-pnpm install
-
-pnpm dev:server    # harness server → 127.0.0.1:8799
-pnpm dev           # app → http://127.0.0.1:5199
-pnpm dev:desktop   # Electron shell (macOS/Ubuntu; keep server + Vite running)
-
-pnpm typecheck     # app + server
-pnpm test          # vitest suite (server unit + driver contract + API smoke)
-pnpm test:watch    # same, in watch mode
-pnpm check:electron # syntax-check the plain JS Electron entrypoints
-
-pnpm package:mac   # DMG + ZIP; requires Swift/Xcode tools
-pnpm package:linux # Ubuntu x64 .deb + AppImage; no Swift required
+git clone https://github.com/zhml530/Roundtable.git
+cd Roundtable
+pnpm install --frozen-lockfile
+pnpm dev:desktop
 ```
 
-For Ubuntu installation and real desktop checks, see [`docs/linux-desktop.md`](docs/linux-desktop.md).
+`pnpm dev:desktop` builds the orchestration server, starts Vite, and launches Electron. `pnpm dev` starts only the renderer and is useful for UI-only work.
 
-## Ubuntu release checklist
+## Repository map
 
-Ubuntu release packages must come from the manual **Package Ubuntu** workflow on an exact release commit or tag,
-not from a developer workstation. The Ubuntu 24.04 runner builds and verifies both formats, launches the unpacked
-app and AppImage, and produces one release artifact containing:
+| Path | Purpose |
+| --- | --- |
+| `src/` | React user interface and client state |
+| `server/` | Local orchestration, drivers, sessions, approvals, and persistence |
+| `electron/` | Desktop process, preload bridge, packaging, updater, and native helpers |
+| `shared/` | Types and contracts shared across processes |
+| `apps/docs/` | Maintained user and contributor documentation site |
+| `docs/` | Focused setup, architecture, and release notes |
+| `scripts/` | Build, packaging, validation, and smoke-test helpers |
 
-- the versioned `.deb` and AppImage;
-- stable `Roundtable-amd64.deb` and `Roundtable.AppImage` copies used by the latest-download links;
-- `SHA256SUMS-ubuntu-x64.txt` covering both versioned and stable names.
+## Required checks
 
-Before publishing, confirm that `package.json` has the release version and dispatch the workflow against the same
-commit used for the other platforms. Attach all five Ubuntu files to the matching release in the separate
-[`Roundtable-releases`](https://github.com/milind-soni/Roundtable-releases) repository. Then verify the checksum
-file and install the `.deb` plus launch the AppImage in a clean Ubuntu 24.04 x86_64 GNOME environment. Never combine
-packages built from different commits under one version.
+Run the checks that cover your change. Before opening a pull request, the expected baseline is:
 
-## Repo map
+```sh
+pnpm typecheck
+pnpm lint
+pnpm test
+pnpm build
+```
 
-| Path | What lives there |
-|---|---|
-| `server/contracts.ts` | The driver SPI and canonical runtime event types. The whole architecture in one file — read it first. |
-| `server/drivers/` | One file per provider (Claude, Codex, Grok, cloud computer). Adding a provider = one file + one registration line in `builtIn.ts`. |
-| `server/harness/` | Registry (configs → live instances, unknown → shadow) and the fan-in event bus. |
-| `server/index.ts` | The HTTP + SSE API the app talks to. |
-| `server/testing/` | Test fakes: an in-memory driver, plus scripted fake `claude` / `codex` CLIs. |
-| `src/` | The React chat app. No transports of its own — HTTP commands out, one SSE stream in. |
-| `electron/` | Desktop shell: dictation, screen preview, Android integration, and the Box desktop viewer. macOS-specific code lives here, gated. |
-| `dist-server/` | **Build output.** Never hand-edit, never include in PRs — it's regenerated by `pnpm build:server` at release time. |
+Packaging changes should also run the relevant platform package or smoke command. Do not weaken a release verification gate without documenting why the replacement provides equivalent coverage.
 
-Data lives in `~/.Roundtable/` (bots, transcripts, per-thread NDJSON event logs, config with keys).
+## Pull requests
 
-## Tests
+Include:
 
-The suite is colocated (`server/**/*.test.ts`) and runs with `pnpm test`. Three layers:
+- the problem and intended behavior;
+- screenshots or a short recording for visible UI changes;
+- the checks you ran;
+- migration, compatibility, or security notes when relevant.
 
-- **Unit** — registry, bus, store. Pure in-process, use the fake driver in
-  [`server/testing/fake-driver.ts`](server/testing/fake-driver.ts).
-- **Driver contract** — [`claude.test.ts`](server/drivers/claude.test.ts) and
-  [`codex.test.ts`](server/drivers/codex.test.ts) spawn the scripted fake CLIs in `server/testing/`
-  and assert the canonical event stream, argv/env hygiene, interrupts, and the permission broker.
-  Failure modes are toggled by env var (`FAKE_CLAUDE_MODE=exit-early`, etc.) — extend those fakes
-  rather than mocking `child_process`.
-- **API smoke** — [`index.test.ts`](server/index.test.ts) boots the real server against a throwaway
-  home directory and exercises the HTTP surface.
+New provider adapters should document installation, authentication ownership, model discovery, permissions, cancellation, and the failure state shown when the provider is unavailable.
 
-House rules for tests:
+## Documentation
 
-- **No sleeps.** Wait on the event that proves the behavior (see `server/testing/events.ts`'s
-  `recordEvents(...).until(...)`). A test that needs a timeout to pass is wrong.
-- **Never touch the real `~/.Roundtable`.** The setup file points `HOME` at a temp dir; keep it
-  that way.
-- Fake CLI shebang scripts must be launched through `spawnCli`/`execCli`, which resolve them through
-  Node on Windows. Only gate a test when the behavior itself is genuinely platform-specific.
-
-## Adding a provider driver
-
-The SPI in [`server/contracts.ts`](server/contracts.ts) is deliberately small. A driver PR should:
-
-1. Add `server/drivers/<name>.ts` implementing `ProviderDriver` and register it in
-   [`builtIn.ts`](server/drivers/builtIn.ts).
-2. `decodeConfig` **throws** on invalid config; `create` **rejects** (never throws synchronously) on
-   failure — the registry downgrades both to an unavailable shadow instead of crashing the fleet.
-   Do not remove or work around that behavior; it's what makes configs forward/backward compatible.
-3. Emit only canonical `RuntimeEvent`s carrying your own `driverKind` — the bus drops cross-driver
-   events on the floor.
-4. A missing/broken CLI must surface as `snapshot() → { state: "unavailable", reason }`, and a
-   failed spawn as a failed turn — never a hang, never a crash.
-5. Bring a contract test following the fake-CLI pattern (scripted fake process + `recordEvents`).
-
-## Platform rules
-
-- The harness (`server/`) must stay portable Node. Anything macOS-only (TCC, Swift helpers,
-  `~/Library` paths) belongs in `electron/` behind a `process.platform === "darwin"` gate.
-- Renderer code must consume the desktop capability contract rather than infer support from Electron,
-  the user agent, or the presence of a preload bridge. Screen preview, dictation, Android control, and Box viewing are
-  independent capabilities.
-- Test Ubuntu platform claims on a real GNOME session. Xvfb proves packaging and fake-driver orchestration, not
-  Wayland portal behavior or a real user-selected PipeWire stream.
-- Local screen preview is view-only. Keep capture user-initiated, preserve the Wayland portal chooser lifecycle,
-  and do not expose preview frames as bot computer tools.
-- **Never build command strings for a shell.** No `shell: true`, no spawning through `cmd.exe` with
-  quoted strings — model names, personas, and MCP config JSON travel through argv, and cmd.exe
-  metacharacter expansion is a real injection class. On Windows, resolve `.cmd` shims to their JS
-  entry and spawn `process.execPath` instead.
-- POSIX-only calls (`process.kill(-pid)`, unix sockets) need a gated Windows equivalent
-  (`taskkill /T`, named pipes) — not a silent failure.
-
-## Secrets
-
-API keys are write-only: they land in `~/.Roundtable/config.json` via `PUT /api/config` and the API
-only ever reports `configured` booleans. Keep it that way — no logging keys, no echoing them in
-responses or events, no baking them into argv where another local process could read them.
-
-## Before you open the PR
-
-- [ ] `pnpm typecheck` and `pnpm test` pass
-- [ ] `pnpm check:electron` passes for desktop-shell changes
-- [ ] Ubuntu packaging changes pass `pnpm package:linux` and `node scripts/verify-linux-package.mjs`
-- [ ] New server behavior has a test; driver changes keep the contract tests green
-- [ ] No `dist-server/` churn, no lockfile churn beyond your actual dependency change
-- [ ] macOS-only code is platform-gated; nothing breaks the packaged app
-- [ ] UI changes include before/after screenshots
-
-By contributing you agree your contributions are licensed under the
-[Apache License, Version 2.0](LICENSE).
-
+Document only behavior present in the current tree. Clearly label experimental or platform-specific behavior. Historical design plans are intentionally not kept in the public documentation because they are not a promise of support.

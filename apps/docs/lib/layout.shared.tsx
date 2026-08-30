@@ -10,9 +10,8 @@ export function baseOptions(): BaseLayoutProps {
       transparentMode: 'none',
     },
     links: [
-      { text: 'Website', url: 'https://www.Roundtable.com', external: true },
-      { text: 'Changelog', url: '/docs/changelog' },
-      { type: 'button', text: 'Download', url: 'https://github.com/milind-soni/Roundtable-releases/releases/latest', external: true },
+      { text: 'Repository', url: 'https://github.com/zhml530/Roundtable', external: true },
+      { type: 'button', text: 'Download', url: 'https://github.com/zhml530/Roundtable/releases/latest', external: true },
     ],
     githubUrl: `https://github.com/${gitConfig.user}/${gitConfig.repo}`,
   };

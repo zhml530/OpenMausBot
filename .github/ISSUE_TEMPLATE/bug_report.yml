@@ -15,8 +15,9 @@ body:
         - Chat UI (src/)
         - Harness server / API (server/)
         - Provider drivers (claude / codex / grok)
-        - Computer use (Box / Android)
-        - Connected apps (Composio)
+        - Computer use (Box)
+        - Channels and team coordination
+        - Tasks and routines
         - Desktop shell / packaging (electron/)
         - Docs
         - Not sure
@@ -43,7 +44,7 @@ body:
     attributes:
       label: Logs
       description: >-
-        Anything from the terminal running `pnpm dev:server`, or the per-thread
+        Anything from the terminal running `pnpm dev:desktop`, or the per-thread
         event logs in `~/.Roundtable/events/`. Redact anything that looks like
         a key or token before pasting.
       render: text

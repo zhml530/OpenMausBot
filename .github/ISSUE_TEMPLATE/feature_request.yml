@@ -15,8 +15,9 @@ body:
         - Chat UI (src/)
         - Harness server / API (server/)
         - Provider drivers (new provider or driver behavior)
-        - Computer use (Box / Android)
-        - Connected apps (Composio)
+        - Computer use (Box)
+        - Channels and team coordination
+        - Tasks and routines
         - Desktop shell / packaging (electron/)
         - Docs
         - Not sure

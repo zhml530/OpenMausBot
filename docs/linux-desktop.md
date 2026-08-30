@@ -8,25 +8,24 @@ installed builds do not require Node, pnpm, Swift, or a terminal at runtime.
 - The native Electron window and embedded Roundtable server on GNOME Xorg and GNOME Wayland.
 - Local Claude, Codex, Grok, Gemini, and other configured agent CLIs.
 - Chat, streaming turns, approvals, bot-to-bot communication, and local data storage.
-- Composio connected apps and Box cloud computers.
+- Optional Box cloud computers.
 - External documentation and OAuth links in the default browser.
 - An explicit, view-only local screen preview on GNOME Xorg and GNOME Wayland. The Wayland path uses the
   native portal chooser and keeps the selected PipeWire stream open until the user stops sharing.
 
 The local preview does **not** give a bot control of this computer. Automatic Wayland helper installation,
-Linux dictation, and ARM64 remain unavailable; follow Linux desktop progress in
-[issue #29](https://github.com/milind-soni/Roundtable/issues/29).
+Linux dictation and ARM64 remain unavailable.
 
 ## Download packages
 
 Choose one Ubuntu 24.04 x86_64 package from the latest release:
 
-- [Debian package (`Roundtable-amd64.deb`)](https://github.com/milind-soni/Roundtable-releases/releases/latest/download/Roundtable-amd64.deb) — recommended; APT installs its desktop dependencies.
-- [Portable AppImage (`Roundtable.AppImage`)](https://github.com/milind-soni/Roundtable-releases/releases/latest/download/Roundtable.AppImage) — does not install system files.
-- [SHA-256 checksums](https://github.com/milind-soni/Roundtable-releases/releases/latest/download/SHA256SUMS-ubuntu-x64.txt)
+- [Debian package (`Roundtable-amd64.deb`)](https://github.com/zhml530/Roundtable/releases/latest/download/Roundtable-amd64.deb) — recommended; APT installs its desktop dependencies.
+- [Portable AppImage (`Roundtable.AppImage`)](https://github.com/zhml530/Roundtable/releases/latest/download/Roundtable.AppImage) — does not install system files.
+- [SHA-256 checksums](https://github.com/zhml530/Roundtable/releases/latest/download/SHA256SUMS-ubuntu-x64.txt)
 
 Versioned packages and previous releases remain available on the
-[releases page](https://github.com/milind-soni/Roundtable-releases/releases).
+[releases page](https://github.com/zhml530/Roundtable/releases).
 
 ## Build packages
 
@@ -37,7 +36,7 @@ Requirements for building from source:
 - pnpm 10.33.0 (Corepack can install the version declared by the project)
 
 ```sh
-git clone https://github.com/milind-soni/Roundtable.git
+git clone https://github.com/zhml530/Roundtable.git
 cd Roundtable
 corepack enable
 pnpm install --frozen-lockfile
@@ -79,11 +78,9 @@ configuration directory (`~/.config/Roundtable` unless the environment overrides
 
 ## Develop the desktop shell
 
-Development mode uses three processes. Keep each command running in its own terminal:
+The desktop development command builds the orchestration server, starts Vite, and launches Electron:
 
 ```sh
-pnpm dev:server
-pnpm dev
 pnpm dev:desktop
 ```
 
@@ -119,7 +116,7 @@ Restart Roundtable after installing or signing in to a CLI.
 
 ## Xorg and Wayland
 
-The shell, chat, cloud computers, connected apps, and preview-only capture work in both GNOME session types.
+The shell, chat, cloud computers, and preview-only capture work in both GNOME session types.
 The Wayland chooser/select/persistent-stream/cancel/end/retry lifecycle has been validated in a real Ubuntu
 24.04 GNOME Wayland session. Roundtable detects Wayland before XWayland when both `WAYLAND_DISPLAY` and
 `DISPLAY` exist, so capture cannot accidentally bypass portal-mediated behavior.

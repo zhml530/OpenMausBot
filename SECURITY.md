@@ -2,21 +2,15 @@
 
 ## Reporting a vulnerability
 
-Please **do not open a public issue** for security problems. Email **soni.mil2001@gmail.com** with
-the details (or use GitHub's private vulnerability reporting on this repo if enabled). You'll get a
-response as soon as possible, normally within a few days.
+Please do not open a public issue for a suspected vulnerability. Use GitHub's private vulnerability reporting for `zhml530/Roundtable`. If private reporting is not enabled, contact a repository maintainer privately before sharing technical details publicly.
 
-## Scope notes for researchers
+Include the affected version or commit, platform, reproduction steps, impact, and any suggested mitigation. Remove API keys, tokens, local prompts, and personal data from logs and screenshots.
 
-- The desktop renderer reaches orchestration only through a narrow `contextBridge` API. The utility
-  process must not bind a TCP listener. Provider helper processes use a randomized owner-only named
-  pipe/Unix socket; access by another local user is a vulnerability.
-- Packaged-app API keys use the operating-system credential store and are write-only through desktop
-  IPC (`configured` booleans out, never values). Any path that echoes a stored secret back — IPC event,
-  log line, argv visible in `ps` — is a vulnerability.
-- Agents run real CLIs (`claude`, `codex`) with the user's own privileges, and the permission broker
-  is the consent layer for risky actions. Bypasses of the broker (approving without a user decision,
-  spoofing the broker socket) are vulnerabilities.
-- Spawning must never route user-influenced strings through a shell. Report any `shell: true` /
-  `cmd.exe` string-building you find.
+## Security boundaries
 
+- The renderer reaches orchestration through the Electron preload bridge; the utility process must not expose an unauthenticated network listener.
+- Packaged credentials must remain in operating-system-backed secure storage and must never be returned to the renderer, logs, process arguments, or analytics.
+- Provider CLIs run with the current user's operating-system permissions. Approval prompts are the consent boundary for risky agent actions.
+- User-controlled values must not be routed through a shell command string.
+
+Reports involving a bypass of these boundaries are in scope.

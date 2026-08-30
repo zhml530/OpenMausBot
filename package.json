@@ -3,14 +3,14 @@
   "private": true,
   "version": "0.1.33",
   "description": "A local-first chat app for running a team of AI agents.",
-  "homepage": "https://github.com/milind-soni/Roundtable",
+  "homepage": "https://github.com/zhml530/Roundtable",
   "repository": {
     "type": "git",
-    "url": "https://github.com/milind-soni/Roundtable.git"
+    "url": "https://github.com/zhml530/Roundtable.git"
   },
   "author": {
-    "name": "Milind Soni",
-    "email": "46266943+milind-soni@users.noreply.github.com"
+    "name": "Minliang Zhou",
+    "email": "zhml530@hotmail.com"
   },
   "license": "Apache-2.0",
   "desktopName": "com.Roundtable.app.desktop",

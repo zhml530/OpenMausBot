@@ -7,16 +7,16 @@ protocols:
     schemes: [Roundtable]
 
 # In-app auto-update reads latest-mac.yml + the .zip (macOS) or latest.yml +
-# the NSIS .exe (Windows) from this PUBLIC releases repo (separate from the
-# source repo). Public → no token on users' machines. Baked into
+# the NSIS .exe (Windows) from this public source repository. Public means no
+# token is needed on users' machines. Baked into
 # app-update.yml; both metadata files are emitted here even with
 # --publish never, and must be uploaded to the GitHub release alongside the
 # artifacts — a release missing latest.yml leaves every Windows install
 # stranded on its installed version.
 publish:
   - provider: github
-    owner: milind-soni
-    repo: Roundtable-releases
+    owner: zhml530
+    repo: Roundtable
 
 directories:
   buildResources: build
@@ -131,7 +131,7 @@ linux:
   executableName: Roundtable
   synopsis: Your own team of AI bots, in a chat app
   description: A local-first chat app for running a team of AI agents.
-  maintainer: Milind Soni <46266943+milind-soni@users.noreply.github.com>
+  maintainer: Roundtable contributors
   vendor: Roundtable
   syncDesktopName: true
   desktop:

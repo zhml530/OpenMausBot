@@ -8,8 +8,7 @@
 # mac build — different trees under one version number. Run this from the
 # same commit as the mac build and attach the artifact to the release.
 #
-# Deliberately artifact-only: pushing straight to the separate releases
-# repo would need a cross-repo token this workflow has no business holding.
+# Deliberately artifact-only: use the unified Release workflow to publish.
 name: Package Windows
 
 on:
@@ -64,8 +63,8 @@ jobs:
           [ -f "$res/ui/index.html" ] || { echo "::error::missing $res/ui/index.html"; fail=1; }
           [ -f "$res/app-update.yml" ] || { echo "::error::missing $res/app-update.yml"; fail=1; }
           if [ -f "$res/app-update.yml" ]; then
-            grep -q "Roundtable-releases" "$res/app-update.yml" || {
-              echo "::error::app-update.yml does not point at Roundtable-releases"; fail=1; }
+            grep -q "repo: Roundtable" "$res/app-update.yml" || {
+              echo "::error::app-update.yml does not point at Roundtable"; fail=1; }
             # while the build is unsigned, a publisherName makes
             # electron-updater reject every update as untrusted
             if grep -q "publisherName" "$res/app-update.yml"; then

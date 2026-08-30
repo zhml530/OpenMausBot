@@ -1,70 +1,43 @@
-# Releasing
+# Releasing Roundtable
 
-One workflow builds everything: **Actions → Release → Run workflow**. It
-builds macOS (arm64 + x64, signed, notarized, stapled), Windows, and Ubuntu
-from a single pinned commit, verifies every artifact the way a user would
-receive it, assembles a complete draft on
-[Roundtable-releases](https://github.com/milind-soni/Roundtable-releases),
-and — if you ticked **publish** — flips it live. Leave publish unticked to
-review the draft notes first, then publish from the GitHub UI.
+Roundtable publishes source and desktop artifacts from the same GitHub repository. The unified workflow is **Actions → Release → Run workflow**.
 
-The workflow refuses to overwrite an already-published version, so the only
-prerequisite per release is that `package.json`'s version is bumped on the
-ref you run it against.
+It pins one commit, builds macOS arm64 and x64, Windows x64, and Ubuntu 24.04 x64, verifies the generated update feeds, and creates or updates a draft release in `zhml530/Roundtable`. Leave **publish** disabled for review; enable it only when the complete asset set and notes are ready.
 
-## Why the gates exist
+## Before the first release in the new repository
 
-Each verification step in `release.yml` maps to a real incident from the
-hand-cut releases (0.1.15–0.1.25): stale build output breaking the code
-signature, a bare import killing the packaged server on launch while every
-check stayed green, helper paths resolving outside the app after bundling,
-stapling silently invalidating every published hash, and a finished release
-sitting invisible as a draft. Don't remove a gate without reading the comment
-above it.
+1. Enable GitHub Actions with read/write workflow permissions.
+2. Enable GitHub private vulnerability reporting.
+3. Configure the Apple signing and notarization secrets listed below, or adjust the workflow before attempting a macOS release.
+4. Confirm that `electron-builder.yml` points to `zhml530/Roundtable`.
+5. Run a draft release and install every artifact on its target operating system.
+6. Confirm that update metadata points to the new repository before publishing.
 
-## One-time setup: four secrets
+Do not copy or relabel binaries from the former repository as new Roundtable releases.
 
-Set these in **Roundtable → Settings → Secrets and variables → Actions**.
+## Per-release checklist
 
-### 1. `MAC_CERT_P12_BASE64` + `MAC_CERT_PASSWORD`
+1. Update `package.json` to a version that has not already been published.
+2. Run `pnpm typecheck`, `pnpm lint`, `pnpm test`, and `pnpm build`.
+3. Run the Release workflow with **publish** disabled.
+4. Review signatures, checksums, filenames, update feeds, and release notes.
+5. Smoke-test the macOS, Windows, and Ubuntu packages.
+6. Publish the draft only when the full release is ready.
 
-The Developer ID Application certificate, exported from the Mac that
-currently signs releases:
+The workflow intentionally refuses to overwrite an already-published version.
 
-```sh
-# Keychain Access → My Certificates → "Developer ID Application: Milind Soni
-# (993D98NH4J)" → right-click → Export… → .p12 with a strong password, then:
-base64 -i DeveloperID.p12 | pbcopy   # → MAC_CERT_P12_BASE64
-# the export password             → MAC_CERT_PASSWORD
-```
+## Repository secrets
 
-### 2. `APPLE_API_KEY_P8_BASE64` + `APPLE_API_KEY_ID` + `APPLE_API_ISSUER_ID`
+The macOS job currently expects:
 
-An App Store Connect API key for notarization (better than an app-specific
-password for CI — revocable, scoped, no 2FA dance):
+- `MAC_CERT_P12_BASE64`
+- `MAC_CERT_PASSWORD`
+- `APPLE_API_KEY_P8_BASE64`
+- `APPLE_API_KEY_ID`
+- `APPLE_API_ISSUER_ID`
 
-1. [App Store Connect → Users and Access → Integrations → App Store Connect API](https://appstoreconnect.apple.com/access/integrations/api)
-2. Generate a **Team Key** with the **Developer** role
-3. Download the `.p8` (one chance only), note the Key ID and Issuer ID
+These secrets belong to the Roundtable release owner and must be configured afresh. Do not reuse another project's credentials without the credential owner's authorization. Release creation in the same repository uses GitHub's workflow token and does not require a cross-repository personal access token.
 
-```sh
-base64 -i AuthKey_XXXXXXXX.p8 | pbcopy   # → APPLE_API_KEY_P8_BASE64
-```
+## Why the verification gates remain
 
-### 3. `RELEASES_PAT`
-
-A fine-grained personal access token that lets the workflow write to the
-separate releases repo: **GitHub → Settings → Developer settings →
-Fine-grained tokens** → repository access: only `Roundtable-releases` →
-permissions: **Contents: Read and write**. Set a long expiry and a calendar
-reminder.
-
-### Local fallback
-
-The hand-cut path still works when Actions is down or a release needs
-surgery: `pnpm package:mac`, gate with `codesign --verify --deep --strict`,
-notarize with the local keychain profile (`xcrun notarytool submit …
---keychain-profile AC_PASSWORD`), staple, re-zip, regenerate blockmaps and
-`node scripts/regenerate-mac-feed.mjs`, upload, publish, and always verify
-the published bytes against the published feed by downloading them back.
-
+The workflow cleans generated output, verifies packaged server and UI entry points, checks macOS signatures before notarization, staples artifacts before regenerating hashes, verifies updater feeds against final bytes, and assembles all platforms before publication. Preserve these guarantees when changing the release process.
